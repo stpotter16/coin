@@ -1,0 +1,2 @@
+# coin
+Shared money management
