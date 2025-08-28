@@ -1,4 +1,4 @@
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
 import { Home, Landmark, Settings, User } from "lucide-react";
 import { AppSidebarGroup, AppSidebarGroupProps } from "./app-sidebar-group";
 
