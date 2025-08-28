@@ -1,5 +1,12 @@
 import { LucideIcon } from "lucide-react";
-import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "./ui/sidebar";
 
 export interface SidebarMenuItem {
   title: string;
@@ -30,6 +37,6 @@ export function AppSidebarGroup(props: AppSidebarGroupProps) {
           ))}
         </SidebarMenu>
       </SidebarGroupContent>
-    </SidebarGroup >
-  )
+    </SidebarGroup>
+  );
 }

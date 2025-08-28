@@ -8,15 +8,15 @@ const finaceMenuGroupProps: AppSidebarGroupProps = {
     {
       title: "Home",
       url: "#",
-      icon: Home
+      icon: Home,
     },
     {
       title: "Accounts",
       url: "#",
-      icon: Landmark
-    }
-  ]
-}
+      icon: Landmark,
+    },
+  ],
+};
 
 const userMenuGroupProps: AppSidebarGroupProps = {
   label: "User",
@@ -24,15 +24,15 @@ const userMenuGroupProps: AppSidebarGroupProps = {
     {
       title: "Profile",
       url: "#",
-      icon: User
+      icon: User,
     },
     {
       title: "Settings",
       url: "#",
-      icon: Settings
-    }
-  ]
-}
+      icon: Settings,
+    },
+  ],
+};
 
 export function AppSidebar() {
   return (
@@ -42,5 +42,5 @@ export function AppSidebar() {
         <AppSidebarGroup {...userMenuGroupProps} />
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
