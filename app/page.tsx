@@ -1,5 +1,9 @@
-import { Button } from "@/components/ui/button";
+import { AppOverviewCards } from "@/components/app-overview-cards";
 
 export default function Home() {
-  return <Button>Click Me</Button>;
+  return (
+    <div className="p-6">
+      <AppOverviewCards />
+    </div>
+  );
 }
