@@ -10,7 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { AppSidebar } from "./components/app-sidebar";
-import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -48,6 +48,7 @@ export default function App() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
+        <SidebarTrigger />
         <Outlet />
       </SidebarInset>
     </SidebarProvider>
