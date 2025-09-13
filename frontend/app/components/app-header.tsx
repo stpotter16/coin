@@ -1,3 +1,4 @@
+import { Form } from "react-router"
 import { Button } from "./ui/button"
 import { Separator } from "./ui/separator"
 import { SidebarTrigger } from "./ui/sidebar"
@@ -13,14 +14,16 @@ export function SiteHeader() {
         />
         <h1 className="text-base font-medium">Dashboard</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-            <a
-              href="#"
-              className="dark:text-foreground"
+          <Form method="post" action="/signout">
+            <Button 
+              type="submit" 
+              variant="ghost" 
+              size="sm" 
+              className="hidden sm:flex dark:text-foreground"
             >
               Logout
-            </a>
-          </Button>
+            </Button>
+          </Form>
         </div>
       </div>
     </header>
