@@ -1,5 +1,5 @@
 import { Sidebar, SidebarContent } from "../ui/sidebar";
-import { Home, Landmark, Settings, User } from "lucide-react";
+import { Banknote, DollarSign, Home, Landmark, Settings, User } from "lucide-react";
 import { AppSidebarGroup, type AppSidebarGroupProps } from "./app-sidebar-group";
 
 const finaceMenuGroupProps: AppSidebarGroupProps = {
@@ -9,6 +9,16 @@ const finaceMenuGroupProps: AppSidebarGroupProps = {
       title: "Home",
       url: "/",
       icon: Home,
+    },
+    {
+      title: "Transactions",
+      url: "/transactions",
+      icon: Banknote
+    },
+    {
+      title: "Budget",
+      url: "/budget",
+      icon: DollarSign
     },
     {
       title: "Accounts",
