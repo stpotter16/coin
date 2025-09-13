@@ -9,7 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import { AppSidebar } from "./components/app-sidebar";
+import { AppSidebar } from "./components/sidebar/app-sidebar";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import { SiteHeader } from "./components/app-header";
 
