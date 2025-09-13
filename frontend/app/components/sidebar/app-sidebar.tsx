@@ -7,12 +7,12 @@ const finaceMenuGroupProps: AppSidebarGroupProps = {
   menuItems: [
     {
       title: "Home",
-      url: "#",
+      url: "/",
       icon: Home,
     },
     {
       title: "Accounts",
-      url: "#",
+      url: "/accounts",
       icon: Landmark,
     },
   ],
@@ -23,12 +23,12 @@ const userMenuGroupProps: AppSidebarGroupProps = {
   menuItems: [
     {
       title: "Profile",
-      url: "#",
+      url: "/profile",
       icon: User,
     },
     {
       title: "Settings",
-      url: "#",
+      url: "/settings",
       icon: Settings,
     },
   ],
