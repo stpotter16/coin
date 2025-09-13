@@ -1,83 +1,46 @@
-import { CreditCard, DollarSign, Settings, User } from "lucide-react"
+import { Sidebar, SidebarContent } from "../ui/sidebar";
+import { Home, Landmark, Settings, User } from "lucide-react";
+import { AppSidebarGroup, type AppSidebarGroupProps } from "./app-sidebar-group";
 
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "../ui/sidebar"
-
-const menuItems = {
-  finances: [
+const finaceMenuGroupProps: AppSidebarGroupProps = {
+  label: "Finances",
+  menuItems: [
     {
-      title: "Transactions",
-      icon: CreditCard,
-      url: "/transactions",
+      title: "Home",
+      url: "#",
+      icon: Home,
     },
     {
-      title: "Budget",
-      icon: DollarSign,
-      url: "/budget",
+      title: "Accounts",
+      url: "#",
+      icon: Landmark,
     },
   ],
-  user: [
+};
+
+const userMenuGroupProps: AppSidebarGroupProps = {
+  label: "User",
+  menuItems: [
     {
       title: "Profile",
+      url: "#",
       icon: User,
-      url: "/profile",
     },
     {
       title: "Settings",
+      url: "#",
       icon: Settings,
-      url: "/settings",
     },
   ],
-}
+};
 
 export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Finances</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.finances.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>User</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.user.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <AppSidebarGroup {...finaceMenuGroupProps} />
+        <AppSidebarGroup {...userMenuGroupProps} />
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
