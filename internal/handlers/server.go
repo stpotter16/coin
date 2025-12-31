@@ -3,10 +3,10 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/stpotter16/biodata/internal/handlers/authorization"
-	"github.com/stpotter16/biodata/internal/handlers/middleware"
-	"github.com/stpotter16/biodata/internal/handlers/sessions"
-	"github.com/stpotter16/biodata/internal/store"
+	"github.com/stpotter16/coin/internal/handlers/authorization"
+	"github.com/stpotter16/coin/internal/handlers/middleware"
+	"github.com/stpotter16/coin/internal/handlers/sessions"
+	"github.com/stpotter16/coin/internal/store"
 )
 
 func NewServer(
