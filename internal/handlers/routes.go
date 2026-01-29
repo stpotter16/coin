@@ -20,7 +20,7 @@ func addRoutes(
 	// views
 
 	// views that need authentication
-	// viewAuthRequired := middleware.NewViewAuthenticationRequiredMiddleware(sessionManager)
+	_ = middleware.NewViewAuthenticationRequiredMiddleware(sessionManager)
 
 	// Auth
 
