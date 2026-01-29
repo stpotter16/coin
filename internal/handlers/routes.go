@@ -15,7 +15,7 @@ func addRoutes(
 	sessionManager sessions.SessionManger,
 	authorizer authorization.Authorizer) {
 	// static
-	// mux.Handle("GET /static/", http.StripPrefix("/static/", serveStaticFiles()))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", serveStaticFiles()))
 
 	// views
 
