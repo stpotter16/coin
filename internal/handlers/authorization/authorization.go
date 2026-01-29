@@ -11,7 +11,7 @@ type Authorizer struct {
 }
 
 func New(getenv func(string) string) (Authorizer, error) {
-	passphrase := getenv("BIODATA_PASSPHRASE")
+	passphrase := getenv("COIN_PASSPHRASE")
 	if passphrase == "" {
 		return Authorizer{}, errors.New("could not locate passphrase environment variable")
 	}
