@@ -1,0 +1,73 @@
+{{ define "title" }}Login{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    const loginForm = document.getElementById("login");
+
+    function setLoginFormState(isEnabled) {
+      document.querySelectorAll("#login input").forEach((el) => {
+        el.disabled = !isEnabled;
+      });
+    }
+
+    function disableLoginForm() {
+      setLoginFormState(false);
+    }
+
+    function enableLoginForm() {
+      setLoginFormState(true);
+    }
+
+    async function login(passphrase) {
+      return fetch("/login", {
+        method: "POST",
+        mode: "same-origin",
+        credentials: "include",
+        cache: "no-cache",
+        redirect: "error",
+        body: JSON.stringify({
+          passphrase: passphrase,
+        }),
+      }).then((response) => {
+        if (!response.ok) {
+          return response.text().then((error) => {
+            return Promise.reject(error);
+          });
+        }
+        return Promise.resolve();
+      });
+    }
+
+    // Close button for error message
+    document.getElementById("error-close").addEventListener("click", () => {
+      document.getElementById("error-message").style.display = "none";
+      document.getElementById("passphrase").value = "";
+    });
+
+    loginForm.addEventListener("submit", (evt) => {
+      evt.preventDefault();
+      const passphrase = document.getElementById("passphrase").value;
+      disableLoginForm();
+      login(passphrase)
+        .then(() => {
+          document.location = "/";
+        })
+        .catch((error) => {
+          enableLoginForm();
+          document.getElementById("error-text").textContent = error;
+          document.getElementById("error-message").style.display = "flex";
+        });
+    });
+  </script>
+{{ end }}
+{{ define "content" }}
+  <h1>Login</h1>
+  <div id="error-message" style="display: none">
+    <span id="error-text"></span>
+    <button id="error-close" type="button">&times;</button>
+  </div>
+  <form id="login">
+    <label for="passphrase">Passphrase</label>
+    <input type="password" name="passphrase" id="passphrase" />
+    <input type="submit" value="Login" />
+  </form>
+{{ end }}

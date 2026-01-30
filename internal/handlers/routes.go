@@ -18,9 +18,11 @@ func addRoutes(
 	mux.Handle("GET /static/", http.StripPrefix("/static/", serveStaticFiles()))
 
 	// views
+	mux.HandleFunc("GET /login", loginGet())
 
 	// views that need authentication
-	_ = middleware.NewViewAuthenticationRequiredMiddleware(sessionManager)
+	viewAuthRequired := middleware.NewViewAuthenticationRequiredMiddleware(sessionManager)
+	mux.Handle("GET /{$}", viewAuthRequired(indexGet()))
 
 	// Auth
 
