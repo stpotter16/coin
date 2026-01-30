@@ -21,3 +21,6 @@ lint/go:
 
 lint/shell:
 	./dev-scripts/check-shell.sh
+
+lint/sql:
+	./dev-scripts/check-sql.sh
