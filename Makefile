@@ -24,3 +24,6 @@ lint/shell:
 
 lint/sql:
 	./dev-scripts/check-sql.sh
+
+lint/frontend:
+	./dev-scripts/check-frontend.sh
