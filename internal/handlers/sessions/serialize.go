@@ -8,7 +8,7 @@ import (
 
 type serializedSession struct {
 	Id        string `json:"id"`
-	UserId    uint8  `json:"userid"`
+	UserId    int    `json:"userid"`
 	CsrtToken string `json:"csrfToken"`
 }
 

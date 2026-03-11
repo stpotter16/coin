@@ -20,11 +20,9 @@ type contextKey struct {
 const SESSION_KEY = "session"
 const SESSION_ENV_KEY = "COIN_SESSION_ENV_KEY"
 
-const DEFAULT_USER_ID = 1
-
 type Session struct {
 	ID        string
-	UserId    uint8
+	UserId    int
 	CsrfToken string
 }
 
@@ -49,7 +47,7 @@ func New(db db.DB, getenv func(string) string) (SessionManger, error) {
 	return s, nil
 }
 
-func (s SessionManger) CreateSession(w http.ResponseWriter, r *http.Request) error {
+func (s SessionManger) CreateSession(w http.ResponseWriter, r *http.Request, userId int) error {
 	sessionId := uuid.NewString()
 	csrfToken, err := generateCsrfToken()
 	if err != nil {
@@ -58,7 +56,7 @@ func (s SessionManger) CreateSession(w http.ResponseWriter, r *http.Request) err
 	}
 	session := Session{
 		ID:        sessionId,
-		UserId:    DEFAULT_USER_ID,
+		UserId:    userId,
 		CsrfToken: csrfToken,
 	}
 

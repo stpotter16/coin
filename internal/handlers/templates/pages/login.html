@@ -17,7 +17,7 @@
       setLoginFormState(true);
     }
 
-    async function login(passphrase) {
+    async function login(username, password) {
       return fetch("/login", {
         method: "POST",
         mode: "same-origin",
@@ -25,7 +25,8 @@
         cache: "no-cache",
         redirect: "error",
         body: JSON.stringify({
-          passphrase: passphrase,
+          username: username,
+          password: password,
         }),
       }).then((response) => {
         if (!response.ok) {
@@ -40,14 +41,15 @@
     // Close button for error message
     document.getElementById("error-close").addEventListener("click", () => {
       document.getElementById("error-message").style.display = "none";
-      document.getElementById("passphrase").value = "";
+      document.getElementById("password").value = "";
     });
 
     loginForm.addEventListener("submit", (evt) => {
       evt.preventDefault();
-      const passphrase = document.getElementById("passphrase").value;
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
       disableLoginForm();
-      login(passphrase)
+      login(username, password)
         .then(() => {
           document.location = "/";
         })
@@ -66,8 +68,10 @@
     <button id="error-close" type="button">&times;</button>
   </div>
   <form id="login">
-    <label for="passphrase">Passphrase</label>
-    <input type="password" name="passphrase" id="passphrase" />
+    <label for="username">Username</label>
+    <input type="text" name="username" id="username" autocomplete="username" />
+    <label for="password">Password</label>
+    <input type="password" name="password" id="password" autocomplete="current-password" />
     <input type="submit" value="Login" />
   </form>
 {{ end }}

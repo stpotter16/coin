@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/stpotter16/coin/internal/handlers"
-	"github.com/stpotter16/coin/internal/handlers/authorization"
+	"github.com/stpotter16/coin/internal/handlers/authentication"
 	"github.com/stpotter16/coin/internal/handlers/sessions"
 	"github.com/stpotter16/coin/internal/store/db"
 	"github.com/stpotter16/coin/internal/store/sqlite"
@@ -53,12 +53,9 @@ func run(
 		return err
 	}
 
-	authorizer, err := authorization.New(getenv)
-	if err != nil {
-		return err
-	}
+	authenticator := authentication.New(store)
 
-	handler := handlers.NewServer(store, sessionManager, authorizer)
+	handler := handlers.NewServer(store, sessionManager, authenticator)
 	port := getenv("PORT")
 	if port == "" {
 		port = "8080"
