@@ -4,10 +4,8 @@ Manage your money
 
 ## Getting Started
 
-### Frontend
+### Dev list
 
-TODO
+Logging
 
-### Backend
-
-TODO
+Parsing info at the boundaries

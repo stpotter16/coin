@@ -1,19 +1,18 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/stpotter16/coin/internal/handlers/authentication"
 	"github.com/stpotter16/coin/internal/handlers/sessions"
-	"github.com/stpotter16/coin/internal/types"
+	"github.com/stpotter16/coin/internal/parse"
 )
 
 func loginPost(authenticator authentication.Authenticator, sessionManager sessions.SessionManger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.LoginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req, err := parse.ParseLoginPost(r)
+		if err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
