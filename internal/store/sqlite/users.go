@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/stpotter16/coin/internal/store"
 	"github.com/stpotter16/coin/internal/types"
@@ -40,4 +41,18 @@ func (s Store) GetUserByUsername(ctx context.Context, username string) (types.Us
 	}
 
 	return u, nil
+}
+
+func (s Store) CreateUser(ctx context.Context, username, passwordHash string, isAdmin bool) error {
+	adminVal := 0
+	if isAdmin {
+		adminVal = 1
+	}
+	now := formatTime(time.Now().UTC())
+
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO user (username, password, is_admin, created_time, last_modified_time) VALUES (?, ?, ?, ?, ?)`,
+		username, passwordHash, adminVal, now, now,
+	)
+	return err
 }

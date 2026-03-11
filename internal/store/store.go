@@ -11,4 +11,5 @@ var ErrUserNotFound = errors.New("user not found")
 
 type Store interface {
 	GetUserByUsername(ctx context.Context, username string) (types.User, error)
+	CreateUser(ctx context.Context, username, passwordHash string, isAdmin bool) error
 }

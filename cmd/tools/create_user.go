@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
 	"log"
-	"time"
+	"os"
 
 	"github.com/stpotter16/coin/internal/auth"
+	"github.com/stpotter16/coin/internal/store/db"
+	"github.com/stpotter16/coin/internal/store/sqlite"
 )
 
 func main() {
@@ -16,7 +18,22 @@ func main() {
 	flag.Parse()
 
 	if *username == "" || *password == "" {
-		log.Fatal("Usage: go run tools/create_user.go -username <username> -password <password> [-admin]")
+		log.Fatal("Usage: go run cmd/tools/create_user.go -username <username> -password <password> [-admin]")
+	}
+
+	dbPath := os.Getenv("COIN_DB_PATH")
+	if dbPath == "" {
+		log.Fatal("COIN_DB_PATH environment variable not set")
+	}
+
+	database, err := db.New(dbPath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+
+	store, err := sqlite.New(database)
+	if err != nil {
+		log.Fatalf("Failed to initialise store: %v", err)
 	}
 
 	hash, err := auth.HashPassword(*password)
@@ -24,14 +41,9 @@ func main() {
 		log.Fatalf("Failed to hash password: %v", err)
 	}
 
-	now := time.Now().UTC().Format(time.RFC3339)
-	adminVal := 0
-	if *isAdmin {
-		adminVal = 1
+	if err := store.CreateUser(context.Background(), *username, hash, *isAdmin); err != nil {
+		log.Fatalf("Failed to create user: %v", err)
 	}
 
-	fmt.Printf(
-		"INSERT INTO user (username, password, is_admin, created_time, last_modified_time) VALUES ('%s', '%s', %d, '%s', '%s');\n",
-		*username, hash, adminVal, now, now,
-	)
+	log.Printf("User %q created successfully", *username)
 }
