@@ -1,4 +1,4 @@
-# Data Model
+# Plan
 
 ## Overview
 
@@ -140,11 +140,55 @@ Plaid access tokens are long-lived OAuth credentials — one per connected insti
 
 ### Environment Variables
 
-| Variable              | Purpose                                      |
-|-----------------------|----------------------------------------------|
-| `COIN_DB_PATH`        | Path to SQLite database directory            |
-| `COIN_SESSION_ENV_KEY`| HMAC secret for session cookies              |
-| `COIN_ENCRYPTION_KEY` | AES-256-GCM key for encrypting access tokens |
+| Variable                | Purpose                                           |
+|-------------------------|---------------------------------------------------|
+| `COIN_DB_PATH`          | Path to SQLite database directory                 |
+| `COIN_SESSION_ENV_KEY`  | HMAC secret for session cookies                   |
+| `COIN_ENCRYPTION_KEY`   | AES-256-GCM key for encrypting access tokens      |
+| `COIN_PLAID_CLIENT_ID`  | Plaid API client ID                               |
+| `COIN_PLAID_SECRET`     | Plaid API secret (sandbox or production)          |
+| `COIN_PLAID_ENV`        | Plaid environment: `sandbox` or `production`      |
+
+## Plaid Integration
+
+### Overview
+
+Plaid is integrated via the official Go SDK (`github.com/plaid/plaid-go/v21`). The integration covers three concerns: the Link flow (connecting an institution), transaction syncing (polling), and account balance refreshing.
+
+### Link Flow
+
+Plaid Link is a JavaScript widget that handles the institution OAuth flow in the browser.
+
+1. User initiates connection from the Settings page
+2. Browser calls `POST /plaid/link/token` — server creates a Plaid link token and returns it
+3. Browser opens the Plaid Link widget using the link token
+4. On success, Plaid returns a `public_token` to the browser
+5. Browser calls `POST /plaid/link/exchange` with the `public_token`
+6. Server exchanges it for a long-lived `access_token` via Plaid API
+7. Server encrypts the `access_token` (AES-256-GCM) and saves it to `plaid_item`
+8. Server triggers an initial sync for the new item
+
+### Transaction Sync
+
+Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
+
+1. Load all `plaid_item` rows from the DB
+2. Decrypt each item's `access_token`
+3. Call `/transactions/sync` with the item's stored cursor (nil on first sync)
+4. Upsert `added` and `modified` transactions into `transactions`
+5. Delete `removed` transactions from `transactions`
+6. Update the item's `transaction_cursor` with the next cursor from the response
+7. Refresh account balances via `/accounts/get` and upsert into `account`
+
+### Implementation Steps
+
+1. ✅ Add `github.com/plaid/plaid-go/v21` dependency
+2. ✅ Add `internal/crypto` — AES-256-GCM encrypt/decrypt
+3. ✅ Add store interface methods + sqlite implementations for `plaid_item`, `account`, `transactions`
+4. ✅ Add `internal/plaidclient` — thin wrapper initialising the Plaid API client from env vars
+5. ✅ Add `internal/sync` — sync logic
+6. ✅ Add Link flow handlers (`POST /plaid/link/token`, `POST /plaid/link/exchange`)
+7. ✅ Wire hourly polling goroutine in `main.go`
 
 ## UI Considerations
 

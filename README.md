@@ -8,4 +8,4 @@ Manage your money
 
 Logging
 
-Parsing info at the boundaries
+Parsing info at the boundaries (plaid, db)

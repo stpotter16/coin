@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,8 +16,10 @@ import (
 	"github.com/stpotter16/coin/internal/handlers"
 	"github.com/stpotter16/coin/internal/handlers/authentication"
 	"github.com/stpotter16/coin/internal/handlers/sessions"
+	"github.com/stpotter16/coin/internal/plaidclient"
 	"github.com/stpotter16/coin/internal/store/db"
 	"github.com/stpotter16/coin/internal/store/sqlite"
+	"github.com/stpotter16/coin/internal/sync"
 )
 
 func run(
@@ -37,32 +40,45 @@ func run(
 	}
 	flag.Parse()
 
+	encryptionKey, err := loadEncryptionKey(getenv)
+	if err != nil {
+		return err
+	}
+
 	log.Printf("Opening database in %v", dbPath)
-	db, err := db.New(dbPath)
+	database, err := db.New(dbPath)
 	if err != nil {
 		return err
 	}
 
-	store, err := sqlite.New(db)
+	store, err := sqlite.New(database)
 	if err != nil {
 		return err
 	}
 
-	sessionManager, err := sessions.New(db, getenv)
+	sessionManager, err := sessions.New(database, getenv)
 	if err != nil {
 		return err
 	}
 
 	authenticator := authentication.New(store)
 
-	handler := handlers.NewServer(store, sessionManager, authenticator)
+	plaidClient, err := plaidclient.New(getenv)
+	if err != nil {
+		return err
+	}
+
+	syncer := sync.New(store, plaidClient, encryptionKey)
+
+	go startSyncPoller(ctx, syncer)
+
+	handler := handlers.NewServer(store, sessionManager, authenticator, plaidClient, syncer, encryptionKey)
 	port := getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	addr := ":" + port
 	server := &http.Server{
-		Addr:    addr,
+		Addr:    ":" + port,
 		Handler: handler,
 	}
 
@@ -82,6 +98,36 @@ func run(
 		return fmt.Errorf("server shutdown error: %w", err)
 	}
 	return nil
+}
+
+func loadEncryptionKey(getenv func(string) string) ([]byte, error) {
+	encoded := getenv("COIN_ENCRYPTION_KEY")
+	if encoded == "" {
+		return nil, errors.New("COIN_ENCRYPTION_KEY environment variable not set")
+	}
+	key, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("COIN_ENCRYPTION_KEY is not valid base64: %w", err)
+	}
+	if len(key) != 32 {
+		return nil, fmt.Errorf("COIN_ENCRYPTION_KEY must be 32 bytes, got %d", len(key))
+	}
+	return key, nil
+}
+
+func startSyncPoller(ctx context.Context, syncer sync.Syncer) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("sync: starting scheduled sync")
+			syncer.SyncAll(ctx)
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func main() {
