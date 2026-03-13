@@ -35,6 +35,13 @@ func CspMiddleware(next http.Handler) http.Handler {
 				name: "script-src",
 				values: []string{
 					"'nonce-" + nonce + "'",
+					"https://cdn.plaid.com",
+				},
+			},
+			{
+				name: "frame-src",
+				values: []string{
+					"https://*.plaid.com",
 				},
 			},
 			{

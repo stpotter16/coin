@@ -204,6 +204,16 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four 
 | Accounts     | Connected institutions and account balances          |
 | Settings     | Plaid connection management; user management (admin) |
 
+### Implementation Status
+
+| Page         | Status     |
+| ------------ | ---------- |
+| Login        | ✅ Done    |
+| Dashboard    | ✅ Done    |
+| Settings     | ✅ Done    |
+| Accounts     | ⬜ Planned |
+| Transactions | ⬜ Planned |
+
 ### Dashboard
 
 Primary metric is **net cash flow** for the current month (income − expenses), displayed as a hero card at the top. A month stepper allows navigating to previous months.
@@ -215,14 +225,62 @@ Supporting cards below the hero:
 - **Top categories** — ranked breakdown of spending by `category_id` (user override) falling back to `plaid_category_primary`
 - **Recent transactions** — last 5–10 transactions as a quick glance
 
+Note: dashboard cards are currently placeholder (`—`). They will be wired up with real data once accounts are synced.
+
 ### Amount Display
 
 - Positive amounts (money out) shown in red
 - Negative amounts (money in) shown in green
 - Labelled explicitly ("spent" / "received") rather than relying on sign alone
 
+### Settings
+
+- Lists connected institutions, each as a card with institution name and a "Connected" badge
+- "Connect an account" button triggers the Plaid Link flow
+- Error alert displayed on failure, button re-enabled for retry
+- On success, page reloads to show the newly connected institution
+- Admin-only user management section: ⬜ planned (not yet built)
+
+### Accounts
+
+Lists connected institutions grouped by institution, with each account shown beneath it.
+
+Each account card shows:
+
+- Account name and subtype (e.g. "Checking", "Credit Card")
+- Current balance (large, prominent)
+- Available balance where applicable (smaller, muted)
+- Last synced time
+
+Empty state: prompt to connect an account via a link to Settings.
+
+**Data required from server:** `GetPlaidItems` + `GetAccountsByItemID` per item.
+
 ### Transactions
 
-- Full list view with filtering by account and date range
-- Each row shows: transaction_date, merchant name, amount, category
-- Tapping a transaction opens a detail view for editing category and note
+Full transaction list with filtering.
+
+**Filter bar (sticky at top):**
+
+- Month stepper (prev/next arrows, current month label) — same period selector as dashboard
+- Account filter dropdown (All Accounts + each connected account)
+
+**Transaction list:**
+
+- Grouped by date (date as a section header)
+- Each row: merchant name (or description if no merchant), amount (red/green), category badge
+- Pending transactions shown with a muted "Pending" label
+
+**Transaction detail — bottom sheet modal (DaisyUI `modal`):**
+
+- Opens on row tap
+- Shows: full description, merchant name, date, amount, payment channel, Plaid category
+- Category override: dropdown of user-defined categories, saves via `PATCH /transactions/:id`
+- Notes: list of existing notes + an add-note input, submits via `POST /transaction-notes`
+
+**Data required from server:** query transactions joined with account, filtered by month and optionally account. Pagination or a reasonable limit (e.g. 100 most recent) to keep page load fast.
+
+**New API endpoints needed:**
+
+- `PATCH /transactions/:id` — update category_id
+- `POST /transaction-notes` — add a note to a transaction
