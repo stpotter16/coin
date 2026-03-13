@@ -23,77 +23,77 @@ The local schema mirrors this hierarchy.
 
 One row per connected institution. Holds the Plaid access token (encrypted) and the transaction sync cursor.
 
-| Column               | Type    | Notes                                                  |
-|----------------------|---------|--------------------------------------------------------|
-| id                   | INTEGER | Primary key                                            |
-| plaid_item_id        | TEXT    | Plaid's item ID                                        |
-| plaid_access_token   | TEXT    | AES-256-GCM encrypted — see Security section           |
-| institution_id       | TEXT    | Plaid institution ID                                   |
-| institution_name     | TEXT    | Human-readable institution name                        |
-| transaction_cursor   | TEXT    | Cursor for `/transactions/sync` — null before first sync |
-| created_time         | TEXT    | RFC3339                                                |
-| last_modified_time   | TEXT    | RFC3339                                                |
+| Column             | Type    | Notes                                                    |
+| ------------------ | ------- | -------------------------------------------------------- |
+| id                 | INTEGER | Primary key                                              |
+| plaid_item_id      | TEXT    | Plaid's item ID                                          |
+| plaid_access_token | TEXT    | AES-256-GCM encrypted — see Security section             |
+| institution_id     | TEXT    | Plaid institution ID                                     |
+| institution_name   | TEXT    | Human-readable institution name                          |
+| transaction_cursor | TEXT    | Cursor for `/transactions/sync` — null before first sync |
+| created_time       | TEXT    | RFC3339                                                  |
+| last_modified_time | TEXT    | RFC3339                                                  |
 
 ### `accounts`
 
 One row per account within an item.
 
-| Column              | Type    | Notes                                                   |
-|---------------------|---------|---------------------------------------------------------|
-| id                  | INTEGER | Primary key                                             |
-| plaid_account_id    | TEXT    | Plaid's account ID                                      |
-| plaid_item_id       | INTEGER | FK → plaid_items.id                                     |
-| name                | TEXT    | Account name (e.g. "Plaid Checking")                    |
-| official_name       | TEXT    | Official account name from the institution (nullable)   |
-| type                | TEXT    | Plaid account type: depository, credit, loan, investment |
-| subtype             | TEXT    | Plaid account subtype: checking, savings, credit card   |
-| current_balance     | REAL    | Current balance as reported by Plaid (nullable)         |
-| available_balance   | REAL    | Available balance (nullable)                            |
-| iso_currency_code   | TEXT    | e.g. "USD"                                              |
-| created_time        | TEXT    | RFC3339                                                 |
-| last_modified_time  | TEXT    | RFC3339                                                 |
+| Column             | Type    | Notes                                                    |
+| ------------------ | ------- | -------------------------------------------------------- |
+| id                 | INTEGER | Primary key                                              |
+| plaid_account_id   | TEXT    | Plaid's account ID                                       |
+| plaid_item_id      | INTEGER | FK → plaid_items.id                                      |
+| name               | TEXT    | Account name (e.g. "Plaid Checking")                     |
+| official_name      | TEXT    | Official account name from the institution (nullable)    |
+| type               | TEXT    | Plaid account type: depository, credit, loan, investment |
+| subtype            | TEXT    | Plaid account subtype: checking, savings, credit card    |
+| current_balance    | REAL    | Current balance as reported by Plaid (nullable)          |
+| available_balance  | REAL    | Available balance (nullable)                             |
+| iso_currency_code  | TEXT    | e.g. "USD"                                               |
+| created_time       | TEXT    | RFC3339                                                  |
+| last_modified_time | TEXT    | RFC3339                                                  |
 
 ### `categories`
 
 User-defined transaction categories for local augmentation.
 
-| Column              | Type    | Notes                        |
-|---------------------|---------|------------------------------|
-| id                  | INTEGER | Primary key                  |
-| name                | TEXT    | Unique                       |
-| created_by          | INTEGER | FK → user.id                 |
-| last_modified_by    | INTEGER | FK → user.id                 |
-| created_time        | TEXT    | RFC3339                      |
-| last_modified_time  | TEXT    | RFC3339                      |
+| Column             | Type    | Notes        |
+| ------------------ | ------- | ------------ |
+| id                 | INTEGER | Primary key  |
+| name               | TEXT    | Unique       |
+| created_by         | INTEGER | FK → user.id |
+| last_modified_by   | INTEGER | FK → user.id |
+| created_time       | TEXT    | RFC3339      |
+| last_modified_time | TEXT    | RFC3339      |
 
 ### `transactions`
 
 One row per transaction, synced from Plaid. `category_id` is the only user-editable field on this table — notes live in `transaction_notes`.
 
-| Column                  | Type    | Notes                                                            |
-|-------------------------|---------|------------------------------------------------------------------|
-| id                      | INTEGER | Primary key                                                      |
-| plaid_transaction_id    | TEXT    | Plaid's transaction ID — unique                                  |
-| account_id              | INTEGER | FK → accounts.id                                                 |
-| amount                  | REAL    | See Amount Convention section                                    |
-| transaction_date        | TEXT    | Date of transaction (YYYY-MM-DD)                                 |
-| description             | TEXT    | Plaid's merchant/description string                              |
-| merchant_name           | TEXT    | Cleaned merchant name from Plaid (nullable)                      |
-| pending                 | INTEGER | Boolean: 1 if transaction is pending                             |
-| payment_channel         | TEXT    | e.g. "online", "in store", "other"                               |
+| Column                  | Type    | Notes                                                             |
+| ----------------------- | ------- | ----------------------------------------------------------------- |
+| id                      | INTEGER | Primary key                                                       |
+| plaid_transaction_id    | TEXT    | Plaid's transaction ID — unique                                   |
+| account_id              | INTEGER | FK → accounts.id                                                  |
+| amount                  | REAL    | See Amount Convention section                                     |
+| transaction_date        | TEXT    | Date of transaction (YYYY-MM-DD)                                  |
+| description             | TEXT    | Plaid's merchant/description string                               |
+| merchant_name           | TEXT    | Cleaned merchant name from Plaid (nullable)                       |
+| pending                 | INTEGER | Boolean: 1 if transaction is pending                              |
+| payment_channel         | TEXT    | e.g. "online", "in store", "other"                                |
 | plaid_category_primary  | TEXT    | Plaid `personal_finance_category.primary` (e.g. "FOOD_AND_DRINK") |
-| plaid_category_detailed | TEXT    | Plaid `personal_finance_category.detailed`                       |
-| category_id             | INTEGER | FK → categories.id — user override, nullable                     |
-| last_modified_by        | INTEGER | FK → user.id — nullable, set when user edits category            |
-| created_time            | TEXT    | RFC3339                                                          |
-| last_modified_time      | TEXT    | RFC3339                                                          |
+| plaid_category_detailed | TEXT    | Plaid `personal_finance_category.detailed`                        |
+| category_id             | INTEGER | FK → categories.id — user override, nullable                      |
+| last_modified_by        | INTEGER | FK → user.id — nullable, set when user edits category             |
+| created_time            | TEXT    | RFC3339                                                           |
+| last_modified_time      | TEXT    | RFC3339                                                           |
 
 ### `transaction_notes`
 
 Append-only notes on transactions. One transaction can have many notes. Notes are immutable — to correct a note, delete and re-add.
 
 | Column         | Type    | Notes                |
-|----------------|---------|----------------------|
+| -------------- | ------- | -------------------- |
 | id             | INTEGER | Primary key          |
 | transaction_id | INTEGER | FK → transactions.id |
 | user_id        | INTEGER | FK → user.id         |
@@ -116,6 +116,7 @@ On display, positive amounts should be shown in red (expense) and negative amoun
 Transactions are fetched by polling Plaid's `/transactions/sync` endpoint on a periodic schedule. This endpoint uses a **cursor** stored on each `plaid_item` row to return only new, modified, or removed transactions since the last sync — making incremental syncs efficient.
 
 On each sync cycle:
+
 1. For each `plaid_item`, call `/transactions/sync` with its stored cursor
 2. Upsert added/modified transactions into the `transactions` table
 3. Delete removed transactions from the `transactions` table
@@ -140,14 +141,14 @@ Plaid access tokens are long-lived OAuth credentials — one per connected insti
 
 ### Environment Variables
 
-| Variable                | Purpose                                           |
-|-------------------------|---------------------------------------------------|
-| `COIN_DB_PATH`          | Path to SQLite database directory                 |
-| `COIN_SESSION_ENV_KEY`  | HMAC secret for session cookies                   |
-| `COIN_ENCRYPTION_KEY`   | AES-256-GCM key for encrypting access tokens      |
-| `COIN_PLAID_CLIENT_ID`  | Plaid API client ID                               |
-| `COIN_PLAID_SECRET`     | Plaid API secret (sandbox or production)          |
-| `COIN_PLAID_ENV`        | Plaid environment: `sandbox` or `production`      |
+| Variable               | Purpose                                      |
+| ---------------------- | -------------------------------------------- |
+| `COIN_DB_PATH`         | Path to SQLite database directory            |
+| `COIN_SESSION_ENV_KEY` | HMAC secret for session cookies              |
+| `COIN_ENCRYPTION_KEY`  | AES-256-GCM key for encrypting access tokens |
+| `COIN_PLAID_CLIENT_ID` | Plaid API client ID                          |
+| `COIN_PLAID_SECRET`    | Plaid API secret (sandbox or production)     |
+| `COIN_PLAID_ENV`       | Plaid environment: `sandbox` or `production` |
 
 ## Plaid Integration
 
@@ -197,7 +198,7 @@ Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
 Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four tabs:
 
 | Tab          | Content                                              |
-|--------------|------------------------------------------------------|
+| ------------ | ---------------------------------------------------- |
 | Dashboard    | Default view — net cash flow + rollup cards          |
 | Transactions | Full transaction list, filterable by account/date    |
 | Accounts     | Connected institutions and account balances          |
@@ -208,6 +209,7 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four 
 Primary metric is **net cash flow** for the current month (income − expenses), displayed as a hero card at the top. A month stepper allows navigating to previous months.
 
 Supporting cards below the hero:
+
 - **Total in** — sum of negative amounts (money received) for the period
 - **Total out** — sum of positive amounts (money spent) for the period
 - **Top categories** — ranked breakdown of spending by `category_id` (user override) falling back to `plaid_category_primary`
