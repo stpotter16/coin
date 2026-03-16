@@ -1,0 +1,146 @@
+{{ define "title" }}Transaction{{ end }}
+{{ define "script-tags" }}{{ end }}
+{{ define "page-content" }}
+  <div class="flex flex-col gap-6">
+    {{/* Back link */}}
+    <a
+      href="/transactions"
+      class="flex items-center gap-1 text-sm text-base-content/60"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="size-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M15 19l-7-7 7-7"
+        />
+      </svg>
+      Transactions
+    </a>
+
+    {{/* Amount hero */}}
+    <div class="flex flex-col items-center gap-1 py-4">
+      <p class="text-4xl font-bold {{ .Transaction.AmountClass }}">
+        {{ .Transaction.Amount }}
+      </p>
+      {{ if .Transaction.Pending }}
+        <span class="badge badge-ghost text-xs">Pending</span>
+      {{ end }}
+    </div>
+
+    {{/* Transaction details */}}
+    <div class="card bg-base-200 shadow">
+      <div class="card-body p-4 flex flex-col gap-3">
+        <div class="flex justify-between">
+          <span class="text-sm text-base-content/60">Merchant</span>
+          <span class="text-sm font-medium text-right">
+            {{ .Transaction.DisplayName }}
+          </span>
+        </div>
+        {{ if .Transaction.MerchantName }}
+          <div class="flex justify-between">
+            <span class="text-sm text-base-content/60">Description</span>
+            <span class="text-sm text-right"
+              >{{ .Transaction.Description }}</span
+            >
+          </div>
+        {{ end }}
+        <div class="flex justify-between">
+          <span class="text-sm text-base-content/60">Date</span>
+          <span class="text-sm">{{ .Transaction.Date }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-sm text-base-content/60">Payment channel</span>
+          <span class="text-sm capitalize"
+            >{{ .Transaction.PaymentChannel }}</span
+          >
+        </div>
+        {{ if .Transaction.PlaidCategory }}
+          <div class="flex justify-between">
+            <span class="text-sm text-base-content/60">Category</span>
+            <span class="text-sm">{{ .Transaction.PlaidCategory }}</span>
+          </div>
+        {{ end }}
+      </div>
+    </div>
+
+    {{/* Category override */}}
+    <div class="flex flex-col gap-2">
+      <h2
+        class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+      >
+        Override Category
+      </h2>
+      <form
+        method="POST"
+        action="/transactions/{{ .Transaction.ID }}"
+        class="flex gap-2"
+      >
+        <select name="category_id" class="select select-bordered flex-1">
+          <option value="">None</option>
+          {{ range .Categories }}
+            <option
+              value="{{ .ID }}"
+              {{ if eq $.Transaction.CategoryID .ID }}selected{{ end }}
+            >
+              {{ .Name }}
+            </option>
+          {{ end }}
+        </select>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+    </div>
+
+    {{/* Notes */}}
+    <div class="flex flex-col gap-3">
+      <h2
+        class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+      >
+        Notes
+      </h2>
+
+      {{ if .Notes }}
+        <ul class="flex flex-col gap-2">
+          {{ range .Notes }}
+            <li class="card bg-base-200 shadow">
+              <div class="card-body p-3">
+                <p class="text-sm">{{ .Note }}</p>
+                <p class="text-xs text-base-content/40 mt-1">
+                  {{ .CreatedTime.Format "Jan 2, 2006 3:04 PM" }}
+                </p>
+              </div>
+            </li>
+          {{ end }}
+        </ul>
+      {{ else }}
+        <p class="text-sm text-base-content/40">No notes yet.</p>
+      {{ end }}
+
+
+      <form
+        method="POST"
+        action="/transaction-notes"
+        class="flex flex-col gap-2"
+      >
+        <input
+          type="hidden"
+          name="transaction_id"
+          value="{{ .Transaction.ID }}"
+        />
+        <textarea
+          name="note"
+          class="textarea textarea-bordered w-full"
+          placeholder="Add a note..."
+          rows="2"
+        ></textarea>
+        <button type="submit" class="btn btn-primary w-full">Add note</button>
+      </form>
+    </div>
+  </div>
+{{ end }}

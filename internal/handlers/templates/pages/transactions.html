@@ -1,0 +1,152 @@
+{{ define "title" }}Transactions{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    document
+      .getElementById("account-filter")
+      ?.addEventListener("change", (e) => {
+        const url = new URL(window.location);
+        if (e.target.value) {
+          url.searchParams.set("account_id", e.target.value);
+        } else {
+          url.searchParams.delete("account_id");
+        }
+        window.location = url;
+      });
+  </script>
+{{ end }}
+{{ define "page-content" }}
+  {{ if not .HasAccounts }}
+    <div
+      class="flex flex-col items-center justify-center gap-4 pt-16 text-center"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="size-16 text-base-content/30"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.5"
+          d="M4 6h16M4 10h16M4 14h16M4 18h16"
+        />
+      </svg>
+      <div>
+        <p class="text-lg font-semibold">No accounts connected</p>
+        <p class="text-base-content/60 mt-1">
+          Connect a bank account to start tracking your finances.
+        </p>
+      </div>
+      <a href="/settings" class="btn btn-primary">Connect an account</a>
+    </div>
+  {{ else }}
+    {{/* Sticky filter bar */}}
+    <div class="sticky top-0 z-10 bg-base-100 -mx-4 px-4 pt-1 pb-3">
+      {{/* Month stepper */}}
+      <div class="flex items-center justify-between mb-3">
+        <!-- prettier-ignore -->
+        <a href="/transactions?month={{ .PrevMonth }}{{ if .SelectedAccID }}&account_id={{ .SelectedAccID }}{{ end }}" class="btn btn-ghost btn-sm btn-circle">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="size-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </a>
+        <span class="font-semibold">{{ .MonthLabel }}</span>
+        <!-- prettier-ignore -->
+        <a href="/transactions?month={{ .NextMonth }}{{ if .SelectedAccID }}&account_id={{ .SelectedAccID }}{{ end }}" class="btn btn-ghost btn-sm btn-circle">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="size-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </a>
+      </div>
+
+      {{/* Account filter */}}
+      <select id="account-filter" class="select select-bordered w-full">
+        <option value="">All Accounts</option>
+        {{ range .Accounts }}
+          <option
+            value="{{ .ID }}"
+            {{ if eq $.SelectedAccID .ID }}selected{{ end }}
+          >
+            {{ .Name }}
+          </option>
+        {{ end }}
+      </select>
+    </div>
+
+    {{/* Transaction list */}}
+    {{ if not .Groups }}
+      <p class="pt-8 text-center text-sm text-base-content/50">
+        No transactions for this period.
+      </p>
+    {{ else }}
+      <div class="flex flex-col gap-4">
+        {{ range .Groups }}
+          <div>
+            <p
+              class="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/50"
+            >
+              {{ .Date }}
+            </p>
+            <ul class="flex flex-col gap-0.5">
+              {{ range .Transactions }}
+                <li>
+                  <a
+                    href="/transactions/{{ .ID }}"
+                    class="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-base-200 active:bg-base-200"
+                  >
+                    <div class="flex min-w-0 flex-col">
+                      <span class="truncate font-medium"
+                        >{{ .DisplayName }}</span
+                      >
+                      <div class="mt-0.5 flex items-center gap-2">
+                        {{ if .Category }}
+                          <span class="badge badge-ghost text-xs">
+                            {{- .Category -}}
+                          </span>
+                        {{ end }}
+                        {{ if .Pending }}
+                          <span class="text-xs text-base-content/40">
+                            Pending
+                          </span>
+                        {{ end }}
+                      </div>
+                    </div>
+                    <span
+                      class="ml-3 shrink-0 font-semibold {{ .AmountClass }}"
+                    >
+                      {{- .Amount -}}
+                    </span>
+                  </a>
+                </li>
+              {{ end }}
+            </ul>
+          </div>
+        {{ end }}
+      </div>
+    {{ end }}
+  {{ end }}
+{{ end }}

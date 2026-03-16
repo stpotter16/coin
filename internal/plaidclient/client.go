@@ -18,11 +18,11 @@ type ExchangeResult struct {
 }
 
 type SyncResult struct {
-	Added     []plaid.Transaction
-	Modified  []plaid.Transaction
-	Removed   []plaid.RemovedTransaction
+	Added      []plaid.Transaction
+	Modified   []plaid.Transaction
+	Removed    []plaid.RemovedTransaction
 	NextCursor string
-	HasMore   bool
+	HasMore    bool
 }
 
 func New(getenv func(string) string) (Client, error) {

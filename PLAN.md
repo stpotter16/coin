@@ -271,9 +271,9 @@ Full transaction list with filtering.
 - Each row: merchant name (or description if no merchant), amount (red/green), category badge
 - Pending transactions shown with a muted "Pending" label
 
-**Transaction detail — bottom sheet modal (DaisyUI `modal`):**
+**Transaction detail — separate page (`GET /transactions/:id`):**
 
-- Opens on row tap
+- Each transaction row links to its detail page
 - Shows: full description, merchant name, date, amount, payment channel, Plaid category
 - Category override: dropdown of user-defined categories, saves via `PATCH /transactions/:id`
 - Notes: list of existing notes + an add-note input, submits via `POST /transaction-notes`
@@ -284,3 +284,59 @@ Full transaction list with filtering.
 
 - `PATCH /transactions/:id` — update category_id
 - `POST /transaction-notes` — add a note to a transaction
+
+### Implementation Steps
+
+1. ✅ **Store query** — add `GetTransactions(ctx, TransactionFilter)` to the Store interface and SQLite implementation. Filter struct holds year+month and optional account ID. Returns transactions ordered by date desc.
+2. ✅ **Handler** — wire up `transactionsGet(store)` in `views.go`: parse `month` and `account_id` query params (default to current month), fetch accounts for the filter dropdown, fetch transactions, build display types (pre-format amounts, dates), group by date.
+3. ✅ **Template** — sticky filter bar (month stepper + account dropdown), transaction list grouped by date, amount in red/green, pending label, empty state.
+4. ✅ **Detail page** — `GET /transactions/:id` handler and template; shows full transaction detail, category override dropdown, notes list + add-note input. Back link returns to the transaction list.
+5. ✅ **API endpoints** — `POST /transactions/:id` (update category_id), `POST /transaction-notes` (add note); wire into `routes.go`.
+
+## Tidy Up
+
+Loose items to revisit before considering the project production-ready.
+
+### 1. Internal Types
+
+Review the types in `internal/types/` for consistency and correctness:
+
+- Are all nullable fields (`*string`, `*float64`, `*int`) actually nullable in the DB schema, and vice versa?
+- Are there types that are only used in one place and could be simplified or inlined?
+- Display types (`TransactionDisplay`, `TransactionDetailDisplay`, `AccountDisplay`, `InstitutionWithAccounts`) were added pragmatically — review whether the split between raw types and display types is in the right place.
+- `TransactionFilter` — consider whether it belongs in `types/` or closer to the store package.
+
+### 2. Input Parsing at Application Boundaries
+
+Tighten up how external data (HTTP requests, Plaid API responses) is parsed into internal types:
+
+- HTTP handlers currently parse form values inline with minimal validation — consider a dedicated parsing/validation layer.
+- Plaid sync maps raw SDK types to internal types in `internal/sync/sync.go` — audit for missing fields or incorrect mappings.
+- Date/time handling: `TransactionDate` is stored and passed as a plain `string` (`YYYY-MM-DD`) — decide whether it should be a `time.Time` with a custom marshaler or stay as a string with a well-defined format constant.
+
+### 3. Unit Test Coverage
+
+Currently there are no unit tests. Priority areas:
+
+- `internal/crypto` — encrypt/decrypt round-trip, tampered ciphertext, wrong key.
+- `internal/auth` — hash/verify round-trip, wrong password, malformed hash.
+- `internal/sync` — mapping logic (`mapAccount`, `mapTransaction`), cursor pagination.
+- `internal/store/sqlite` — integration tests against an in-memory or temp SQLite DB for all Store methods.
+- Handler tests — at minimum, smoke tests for auth-required routes returning 401 without a session.
+
+### 4. Forms vs. JavaScript
+
+Currently there is a mix: some interactions use plain HTML form POSTs (category override, add note) and some use JS-driven fetches (Plaid Link exchange, account filter). Decide on a consistent approach:
+
+- Plain form POSTs are simpler and work without JS but require full page reloads.
+- JS fetches allow partial updates but add complexity and CSP nonce requirements.
+- At minimum, document the chosen approach and make the existing code consistent with it.
+- The category override and add-note forms currently do a full redirect on success — consider whether inline feedback (success/error without reload) is worth the added JS complexity.
+
+### 5. Other
+
+- **Admin user management** in Settings — stub noted in UI plan, not yet built.
+- **Category management** — no UI or API exists for creating, editing, or deleting user-defined categories. Needed before the category override on the transaction detail page is useful.
+- **Dashboard data** — net cash flow, money in/out, top categories, recent transactions are all `—` placeholders.
+- **Error states** — most error paths return a plain `http.Error` text response; consider consistent error page rendering.
+- **Pagination** — `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.

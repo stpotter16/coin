@@ -8,6 +8,7 @@ import (
 )
 
 var ErrUserNotFound = errors.New("user not found")
+var ErrTransactionNotFound = errors.New("transaction not found")
 
 type Store interface {
 	// Users
@@ -22,8 +23,19 @@ type Store interface {
 	// Accounts
 	UpsertAccount(ctx context.Context, account types.Account) error
 	GetAccountsByItemID(ctx context.Context, plaidItemID int) ([]types.Account, error)
+	GetAllAccounts(ctx context.Context) ([]types.Account, error)
 
 	// Transactions
 	UpsertTransaction(ctx context.Context, tx types.Transaction) error
 	DeleteTransaction(ctx context.Context, plaidTransactionID string) error
+	GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error)
+	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
+	UpdateTransactionCategory(ctx context.Context, id int, categoryID *int) error
+
+	// Categories
+	GetCategories(ctx context.Context) ([]types.Category, error)
+
+	// Transaction notes
+	GetNotesByTransactionID(ctx context.Context, transactionID int) ([]types.TransactionNote, error)
+	CreateTransactionNote(ctx context.Context, note types.TransactionNote) error
 }
