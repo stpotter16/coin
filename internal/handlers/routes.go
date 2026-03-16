@@ -30,7 +30,7 @@ func addRoutes(
 	viewAuthRequired := middleware.NewViewAuthenticationRequiredMiddleware(sessionManager)
 	mux.Handle("GET /{$}", viewAuthRequired(indexGet(store, sessionManager)))
 	mux.Handle("GET /transactions", viewAuthRequired(transactionsGet()))
-	mux.Handle("GET /accounts", viewAuthRequired(accountsGet()))
+	mux.Handle("GET /accounts", viewAuthRequired(accountsGet(store)))
 	mux.Handle("GET /settings", viewAuthRequired(settingsGet(store)))
 
 	// Auth
