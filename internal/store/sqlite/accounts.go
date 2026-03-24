@@ -2,8 +2,10 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
+	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/types"
 )
 
@@ -21,7 +23,7 @@ func (s Store) GetAllAccounts(ctx context.Context) ([]types.Account, error) {
 
 	var accounts []types.Account
 	for rows.Next() {
-		var a types.Account
+		var a types.AccountDTO
 		var createdTime, lastModifiedTime string
 
 		if err := rows.Scan(
@@ -40,8 +42,12 @@ func (s Store) GetAllAccounts(ctx context.Context) ([]types.Account, error) {
 		if err != nil {
 			return nil, err
 		}
+		account, err := parse.ParseAccountDTO(a)
+		if err != nil {
+			return nil, err
+		}
 
-		accounts = append(accounts, a)
+		accounts = append(accounts, account)
 	}
 
 	return accounts, rows.Err()
@@ -62,7 +68,7 @@ func (s Store) GetAccountsByItemID(ctx context.Context, plaidItemID int) ([]type
 
 	var accounts []types.Account
 	for rows.Next() {
-		var a types.Account
+		var a types.AccountDTO
 		var createdTime, lastModifiedTime string
 
 		if err := rows.Scan(
@@ -81,14 +87,57 @@ func (s Store) GetAccountsByItemID(ctx context.Context, plaidItemID int) ([]type
 		if err != nil {
 			return nil, err
 		}
+		account, err := parse.ParseAccountDTO(a)
+		if err != nil {
+			return nil, err
+		}
 
-		accounts = append(accounts, a)
+		accounts = append(accounts, account)
 	}
 
 	return accounts, rows.Err()
 }
 
 func (s Store) UpsertAccount(ctx context.Context, account types.Account) error {
+	var officialName sql.NullString
+	if account.OfficialName.Valid() {
+		officialName = sql.NullString{
+			String: *account.OfficialName.Value,
+			Valid:  true,
+		}
+	} else {
+		officialName = sql.NullString{
+			String: "",
+			Valid:  false,
+		}
+	}
+
+	var currentBalance sql.NullFloat64
+	if account.CurrentBalance.Valid() {
+		currentBalance = sql.NullFloat64{
+			Float64: *account.CurrentBalance.Value,
+			Valid:   true,
+		}
+	} else {
+		currentBalance = sql.NullFloat64{
+			Float64: 0,
+			Valid:   false,
+		}
+	}
+
+	var availableBalance sql.NullFloat64
+	if account.AvailableBalance.Valid() {
+		availableBalance = sql.NullFloat64{
+			Float64: *account.AvailableBalance.Value,
+			Valid:   true,
+		}
+	} else {
+		availableBalance = sql.NullFloat64{
+			Float64: 0,
+			Valid:   false,
+		}
+	}
+
 	now := formatTime(time.Now().UTC())
 	_, err := s.db.Exec(ctx,
 		`INSERT INTO account
@@ -105,11 +154,11 @@ func (s Store) UpsertAccount(ctx context.Context, account types.Account) error {
 		account.PlaidAccountID,
 		account.PlaidItemID,
 		account.Name,
-		account.OfficialName,
+		officialName,
 		account.Type,
 		account.Subtype,
-		account.CurrentBalance,
-		account.AvailableBalance,
+		currentBalance,
+		availableBalance,
 		account.IsoCurrencyCode,
 		now,
 		now,

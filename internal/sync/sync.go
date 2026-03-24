@@ -6,6 +6,7 @@ import (
 
 	"github.com/plaid/plaid-go/v21/plaid"
 	"github.com/stpotter16/coin/internal/crypto"
+	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/plaidclient"
 	"github.com/stpotter16/coin/internal/store"
 	"github.com/stpotter16/coin/internal/types"
@@ -65,7 +66,10 @@ func (s Syncer) syncAccounts(ctx context.Context, item types.PlaidItem, accessTo
 	}
 
 	for _, pa := range plaidAccounts {
-		account := mapAccount(pa, item.ID)
+		account, err := parse.ParsePlaidAccount(pa, item.ID)
+		if err != nil {
+			return err
+		}
 		if err := s.store.UpsertAccount(ctx, account); err != nil {
 			return err
 		}
@@ -133,31 +137,6 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 
 	log.Printf("sync: completed item %s (%s)", item.InstitutionName, item.PlaidItemID)
 	return nil
-}
-
-func mapAccount(pa plaid.AccountBase, plaidItemID int) types.Account {
-	balances := pa.GetBalances()
-	a := types.Account{
-		PlaidAccountID:  pa.GetAccountId(),
-		PlaidItemID:     plaidItemID,
-		Name:            pa.GetName(),
-		Type:            string(pa.GetType()),
-		Subtype:         string(*pa.GetSubtype().Ptr()),
-		IsoCurrencyCode: balances.GetIsoCurrencyCode(),
-	}
-
-	if name := pa.GetOfficialName(); name != "" {
-		a.OfficialName = &name
-	}
-
-	if balance, ok := balances.GetCurrentOk(); ok && balance != nil {
-		a.CurrentBalance = balance
-	}
-	if balance, ok := balances.GetAvailableOk(); ok && balance != nil {
-		a.AvailableBalance = balance
-	}
-
-	return a
 }
 
 func mapTransaction(pt plaid.Transaction, accountID int) types.Transaction {

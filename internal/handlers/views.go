@@ -379,7 +379,7 @@ func accountsGet(store store.Store) http.HandlerFunc {
 			return
 		}
 
-		groups := make([]types.InstitutionWithAccounts, 0, len(items))
+		groups := make([]types.Institution, 0, len(items))
 		for _, item := range items {
 			accounts, err := store.GetAccountsByItemID(r.Context(), item.ID)
 			if err != nil {
@@ -388,34 +388,15 @@ func accountsGet(store store.Store) http.HandlerFunc {
 				return
 			}
 
-			displays := make([]types.AccountDisplay, 0, len(accounts))
-			for _, a := range accounts {
-				current := "—"
-				if a.CurrentBalance != nil {
-					current = fmt.Sprintf("$%.2f", *a.CurrentBalance)
-				}
-				available := ""
-				if a.AvailableBalance != nil {
-					available = fmt.Sprintf("$%.2f", *a.AvailableBalance)
-				}
-				displays = append(displays, types.AccountDisplay{
-					Name:             a.Name,
-					Subtype:          a.Subtype,
-					CurrentBalance:   current,
-					AvailableBalance: available,
-					LastSynced:       a.LastModifiedTime.Format("Jan 2, 2006 3:04 PM"),
-				})
-			}
-
-			groups = append(groups, types.InstitutionWithAccounts{
-				InstitutionName: item.InstitutionName,
-				Accounts:        displays,
+			groups = append(groups, types.Institution{
+				Name:     item.InstitutionName,
+				Accounts: accounts,
 			})
 		}
 
 		props := struct {
 			viewProps
-			Groups []types.InstitutionWithAccounts
+			Groups []types.Institution
 		}{
 			viewProps: viewProps{CspNonce: nonce, ActivePage: "accounts"},
 			Groups:    groups,
