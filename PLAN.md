@@ -206,13 +206,15 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four 
 
 ### Implementation Status
 
-| Page         | Status     |
-| ------------ | ---------- |
-| Login        | ✅ Done    |
-| Dashboard    | ✅ Done    |
-| Settings     | ✅ Done    |
-| Accounts     | ⬜ Planned |
-| Transactions | ⬜ Planned |
+| Page               | Status                           |
+| ------------------ | -------------------------------- |
+| Login              | ✅ Done                          |
+| Dashboard          | ✅ Done (data placeholders only) |
+| Settings           | ✅ Done                          |
+| Accounts           | ✅ Done                          |
+| Transactions       | ✅ Done                          |
+| Transaction detail | ✅ Done                          |
+| Categories         | ✅ Done                          |
 
 ### Dashboard
 
@@ -225,7 +227,7 @@ Supporting cards below the hero:
 - **Top categories** — ranked breakdown of spending by `category_id` (user override) falling back to `plaid_category_primary`
 - **Recent transactions** — last 5–10 transactions as a quick glance
 
-Note: dashboard cards are currently placeholder (`—`). They will be wired up with real data once accounts are synced.
+⬜ Dashboard cards are currently placeholder (`—`). Real data queries are not yet wired up.
 
 ### Amount Display
 
@@ -239,6 +241,7 @@ Note: dashboard cards are currently placeholder (`—`). They will be wired up w
 - "Connect an account" button triggers the Plaid Link flow
 - Error alert displayed on failure, button re-enabled for retry
 - On success, page reloads to show the newly connected institution
+- "Manage categories" button links to `/categories`
 - Admin-only user management section: ⬜ planned (not yet built)
 
 ### Accounts
@@ -275,15 +278,10 @@ Full transaction list with filtering.
 
 - Each transaction row links to its detail page
 - Shows: full description, merchant name, date, amount, payment channel, Plaid category
-- Category override: dropdown of user-defined categories, saves via `PATCH /transactions/:id`
+- Category override: dropdown of user-defined categories, saves via `POST /transactions/:id`
 - Notes: list of existing notes + an add-note input, submits via `POST /transaction-notes`
 
 **Data required from server:** query transactions joined with account, filtered by month and optionally account. Pagination or a reasonable limit (e.g. 100 most recent) to keep page load fast.
-
-**New API endpoints needed:**
-
-- `PATCH /transactions/:id` — update category_id
-- `POST /transaction-notes` — add a note to a transaction
 
 ### Implementation Steps
 
@@ -324,8 +322,8 @@ Currently there are no unit tests. Priority areas:
 
 ### 5. Other
 
-- **Admin user management** in Settings — stub noted in UI plan, not yet built.
-- **Category management** — no UI or API exists for creating, editing, or deleting user-defined categories. Needed before the category override on the transaction detail page is useful.
-- **Dashboard data** — net cash flow, money in/out, top categories, recent transactions are all `—` placeholders.
-- **Error states** — most error paths return a plain `http.Error` text response; consider consistent error page rendering.
-- **Pagination** — `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.
+- **Admin user management** in Settings — ⬜ not yet built.
+- **Category management** — ✅ Done. `/categories` page with inline add, edit (PUT), delete. Linked from Settings. Delete nullifies any transactions referencing the category before removing it.
+- **Dashboard data** — ⬜ net cash flow, money in/out, top categories, recent transactions are all `—` placeholders.
+- **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
+- **Pagination** — ⬜ `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.
