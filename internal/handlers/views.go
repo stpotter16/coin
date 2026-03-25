@@ -3,13 +3,10 @@ package handlers
 import (
 	"embed"
 	"errors"
-	"fmt"
 	"html/template"
 	"log"
-	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/stpotter16/coin/internal/handlers/middleware"
@@ -146,15 +143,14 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 		var groups []types.TransactionGroup
 		groupIndex := map[string]int{}
 		for _, tx := range txs {
-			display := toTransactionDisplay(tx)
-			dateLabel := formatTransactionDate(tx.TransactionDate)
+			dateLabel := tx.GroupDate()
 			if i, ok := groupIndex[tx.TransactionDate]; ok {
-				groups[i].Transactions = append(groups[i].Transactions, display)
+				groups[i].Transactions = append(groups[i].Transactions, tx)
 			} else {
 				groupIndex[tx.TransactionDate] = len(groups)
 				groups = append(groups, types.TransactionGroup{
 					Date:         dateLabel,
-					Transactions: []types.TransactionDisplay{display},
+					Transactions: []types.Transaction{tx},
 				})
 			}
 		}
@@ -196,34 +192,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			log.Printf("Could not create transactions page: %v", err)
 			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
 		}
-	}
-}
-
-func toTransactionDisplay(tx types.Transaction) types.TransactionDisplay {
-	name := tx.Description
-	if tx.MerchantName != nil && *tx.MerchantName != "" {
-		name = *tx.MerchantName
-	}
-
-	abs := math.Abs(tx.Amount)
-	amountStr := fmt.Sprintf("$%.2f", abs)
-	amountClass := "text-error" // positive = money out
-	if tx.Amount < 0 {
-		amountClass = "text-success" // negative = money in
-	}
-
-	category := ""
-	if tx.PlaidCategoryPrimary != nil {
-		category = formatCategory(*tx.PlaidCategoryPrimary)
-	}
-
-	return types.TransactionDisplay{
-		ID:          tx.ID,
-		DisplayName: name,
-		Amount:      amountStr,
-		AmountClass: amountClass,
-		Category:    category,
-		Pending:     tx.Pending,
 	}
 }
 
@@ -277,12 +245,12 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 
 		props := struct {
 			viewProps
-			Transaction types.TransactionDetailDisplay
+			Transaction types.Transaction
 			Categories  []types.Category
 			Notes       []types.TransactionNote
 		}{
 			viewProps:   viewProps{CspNonce: nonce, ActivePage: "transactions"},
-			Transaction: toTransactionDetailDisplay(tx),
+			Transaction: tx,
 			Categories:  categories,
 			Notes:       notes,
 		}
@@ -294,66 +262,6 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 	}
 }
 
-func toTransactionDetailDisplay(tx types.Transaction) types.TransactionDetailDisplay {
-	displayName := tx.Description
-	merchantName := ""
-	if tx.MerchantName != nil && *tx.MerchantName != "" {
-		displayName = *tx.MerchantName
-		merchantName = *tx.MerchantName
-	}
-
-	abs := math.Abs(tx.Amount)
-	amountStr := fmt.Sprintf("$%.2f", abs)
-	amountClass := "text-error"
-	if tx.Amount < 0 {
-		amountClass = "text-success"
-	}
-
-	plaidCategory := ""
-	if tx.PlaidCategoryPrimary != nil {
-		plaidCategory = formatCategory(*tx.PlaidCategoryPrimary)
-	}
-
-	categoryID := 0
-	if tx.CategoryID != nil {
-		categoryID = *tx.CategoryID
-	}
-
-	t, _ := time.Parse("2006-01-02", tx.TransactionDate)
-	dateStr := t.Format("Mon, Jan 2, 2006")
-
-	return types.TransactionDetailDisplay{
-		ID:             tx.ID,
-		DisplayName:    displayName,
-		Description:    tx.Description,
-		MerchantName:   merchantName,
-		Date:           dateStr,
-		Amount:         amountStr,
-		AmountClass:    amountClass,
-		PaymentChannel: tx.PaymentChannel,
-		PlaidCategory:  plaidCategory,
-		CategoryID:     categoryID,
-		Pending:        tx.Pending,
-	}
-}
-
-func formatCategory(raw string) string {
-	words := strings.Split(strings.ToLower(raw), "_")
-	for i, w := range words {
-		if len(w) > 0 {
-			words[i] = strings.ToUpper(w[:1]) + w[1:]
-		}
-	}
-	return strings.Join(words, " ")
-}
-
-func formatTransactionDate(date string) string {
-	t, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		return date
-	}
-	return t.Format("Mon, Jan 2")
-}
 
 func accountsGet(store store.Store) http.HandlerFunc {
 	t := template.Must(

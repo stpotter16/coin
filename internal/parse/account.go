@@ -19,24 +19,18 @@ func ParsePlaidAccount(pa plaid.AccountBase, plaidItemID int) (types.Account, er
 	var accountName types.AccountName
 	if name := pa.GetOfficialName(); name != "" {
 		accountName.Value = &name
-	} else {
-		accountName.Value = nil
 	}
 	a.OfficialName = accountName
 
 	var currentBalance types.Balance
 	if balance, ok := balances.GetCurrentOk(); ok && balance != nil {
 		currentBalance.Value = balance
-	} else {
-		currentBalance.Value = nil
 	}
 	a.CurrentBalance = currentBalance
 
 	var availableBalance types.Balance
 	if balance, ok := balances.GetAvailableOk(); ok && balance != nil {
 		availableBalance.Value = balance
-	} else {
-		availableBalance.Value = nil
 	}
 	a.AvailableBalance = availableBalance
 
@@ -47,22 +41,16 @@ func ParseAccountDTO(a types.AccountDTO) (types.Account, error) {
 	var accountName types.AccountName
 	if a.OfficialName.Valid {
 		accountName.Value = &a.OfficialName.String
-	} else {
-		accountName.Value = nil
 	}
 
 	var currentBalance types.Balance
 	if a.CurrentBalance.Valid {
 		currentBalance.Value = &a.CurrentBalance.Float64
-	} else {
-		currentBalance.Value = nil
 	}
 
 	var availableBalance types.Balance
 	if a.AvailableBalance.Valid {
 		availableBalance.Value = &a.AvailableBalance.Float64
-	} else {
-		availableBalance.Value = nil
 	}
 
 	account := types.Account{

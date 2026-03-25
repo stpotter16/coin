@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/plaid/plaid-go/v21/plaid"
 	"github.com/stpotter16/coin/internal/crypto"
 	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/plaidclient"
@@ -102,7 +101,7 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 				log.Printf("sync: unknown account id %s, skipping transaction %s", pt.GetAccountId(), pt.GetTransactionId())
 				continue
 			}
-			if err := s.store.UpsertTransaction(ctx, mapTransaction(pt, accountID)); err != nil {
+			if err := s.store.UpsertTransaction(ctx, parse.ParsePlaidTransaction(pt, accountID)); err != nil {
 				return err
 			}
 		}
@@ -113,7 +112,7 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 				log.Printf("sync: unknown account id %s, skipping transaction %s", pt.GetAccountId(), pt.GetTransactionId())
 				continue
 			}
-			if err := s.store.UpsertTransaction(ctx, mapTransaction(pt, accountID)); err != nil {
+			if err := s.store.UpsertTransaction(ctx, parse.ParsePlaidTransaction(pt, accountID)); err != nil {
 				return err
 			}
 		}
@@ -137,30 +136,4 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 
 	log.Printf("sync: completed item %s (%s)", item.InstitutionName, item.PlaidItemID)
 	return nil
-}
-
-func mapTransaction(pt plaid.Transaction, accountID int) types.Transaction {
-	t := types.Transaction{
-		PlaidTransactionID: pt.GetTransactionId(),
-		AccountID:          accountID,
-		Amount:             pt.GetAmount(),
-		TransactionDate:    pt.GetDate(),
-		Description:        pt.GetName(),
-		Pending:            pt.GetPending(),
-		PaymentChannel:     pt.GetPaymentChannel(),
-	}
-
-	if name, ok := pt.GetMerchantNameOk(); ok && name != nil {
-		t.MerchantName = name
-	}
-
-	if pt.HasPersonalFinanceCategory() {
-		pfc := pt.GetPersonalFinanceCategory()
-		primary := pfc.GetPrimary()
-		detailed := pfc.GetDetailed()
-		t.PlaidCategoryPrimary = &primary
-		t.PlaidCategoryDetailed = &detailed
-	}
-
-	return t
 }

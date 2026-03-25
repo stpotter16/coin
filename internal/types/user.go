@@ -10,3 +10,7 @@ type User struct {
 	CreatedTime      time.Time
 	LastModifiedTime time.Time
 }
+
+type NullableUser struct {
+	Value *User
+}

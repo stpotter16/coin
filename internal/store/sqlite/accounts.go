@@ -101,41 +101,17 @@ func (s Store) GetAccountsByItemID(ctx context.Context, plaidItemID int) ([]type
 func (s Store) UpsertAccount(ctx context.Context, account types.Account) error {
 	var officialName sql.NullString
 	if account.OfficialName.Valid() {
-		officialName = sql.NullString{
-			String: *account.OfficialName.Value,
-			Valid:  true,
-		}
-	} else {
-		officialName = sql.NullString{
-			String: "",
-			Valid:  false,
-		}
+		officialName = sql.NullString{String: *account.OfficialName.Value, Valid: true}
 	}
 
 	var currentBalance sql.NullFloat64
 	if account.CurrentBalance.Valid() {
-		currentBalance = sql.NullFloat64{
-			Float64: *account.CurrentBalance.Value,
-			Valid:   true,
-		}
-	} else {
-		currentBalance = sql.NullFloat64{
-			Float64: 0,
-			Valid:   false,
-		}
+		currentBalance = sql.NullFloat64{Float64: *account.CurrentBalance.Value, Valid: true}
 	}
 
 	var availableBalance sql.NullFloat64
 	if account.AvailableBalance.Valid() {
-		availableBalance = sql.NullFloat64{
-			Float64: *account.AvailableBalance.Value,
-			Valid:   true,
-		}
-	} else {
-		availableBalance = sql.NullFloat64{
-			Float64: 0,
-			Valid:   false,
-		}
+		availableBalance = sql.NullFloat64{Float64: *account.AvailableBalance.Value, Valid: true}
 	}
 
 	now := formatTime(time.Now().UTC())

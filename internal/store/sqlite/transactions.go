@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/store"
 	"github.com/stpotter16/coin/internal/types"
 )
@@ -50,15 +51,18 @@ func (s Store) UpsertTransaction(ctx context.Context, tx types.Transaction) erro
 
 func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transaction, error) {
 	row := s.db.QueryRow(ctx,
-		`SELECT id, plaid_transaction_id, account_id, amount, transaction_date,
-		        description, merchant_name, pending, payment_channel,
-		        plaid_category_primary, plaid_category_detailed,
-		        category_id, last_modified_by, created_time, last_modified_time
-		FROM transactions WHERE id = ?`,
+		`SELECT t.id, t.plaid_transaction_id, t.account_id, t.amount, t.transaction_date,
+		        t.description, t.merchant_name, t.pending, t.payment_channel,
+		        t.plaid_category_primary, t.plaid_category_detailed,
+		        t.category_id, t.last_modified_by, u.username,
+		        t.created_time, t.last_modified_time
+		FROM transactions t
+		LEFT JOIN user u ON t.last_modified_by = u.id
+		WHERE t.id = ?`,
 		id,
 	)
 
-	var tx types.Transaction
+	var tx types.TransactionDTO
 	var createdTime, lastModifiedTime string
 	err := row.Scan(
 		&tx.ID,
@@ -73,7 +77,8 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		&tx.PlaidCategoryPrimary,
 		&tx.PlaidCategoryDetailed,
 		&tx.CategoryID,
-		&tx.LastModifiedBy,
+		&tx.LastModifiedByID,
+		&tx.LastModifiedByUsername,
 		&createdTime,
 		&lastModifiedTime,
 	)
@@ -92,7 +97,12 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 	if err != nil {
 		return types.Transaction{}, err
 	}
-	return tx, nil
+	transaction, err := parse.ParseTransactionDTO(tx)
+	if err != nil {
+		return types.Transaction{}, err
+	}
+
+	return transaction, nil
 }
 
 func (s Store) UpdateTransactionCategory(ctx context.Context, id int, categoryID *int) error {
@@ -116,20 +126,22 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 	prefix := fmt.Sprintf("%04d-%02d-", filter.Year, filter.Month)
 
 	query := `
-		SELECT id, plaid_transaction_id, account_id, amount, transaction_date,
-		       description, merchant_name, pending, payment_channel,
-		       plaid_category_primary, plaid_category_detailed,
-		       category_id, last_modified_by, created_time, last_modified_time
-		FROM transactions
-		WHERE transaction_date LIKE ?`
+		SELECT t.id, t.plaid_transaction_id, t.account_id, t.amount, t.transaction_date,
+		       t.description, t.merchant_name, t.pending, t.payment_channel,
+		       t.plaid_category_primary, t.plaid_category_detailed,
+		       t.category_id, t.last_modified_by, u.username,
+		       t.created_time, t.last_modified_time
+		FROM transactions t
+		LEFT JOIN user u ON t.last_modified_by = u.id
+		WHERE t.transaction_date LIKE ?`
 	args := []any{prefix + "%"}
 
 	if filter.AccountID != nil {
-		query += " AND account_id = ?"
+		query += " AND t.account_id = ?"
 		args = append(args, *filter.AccountID)
 	}
 
-	query += " ORDER BY transaction_date DESC, id DESC"
+	query += " ORDER BY t.transaction_date DESC, t.id DESC"
 
 	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
@@ -139,7 +151,7 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 
 	var txs []types.Transaction
 	for rows.Next() {
-		var tx types.Transaction
+		var tx types.TransactionDTO
 		var createdTime, lastModifiedTime string
 		if err := rows.Scan(
 			&tx.ID,
@@ -154,12 +166,14 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 			&tx.PlaidCategoryPrimary,
 			&tx.PlaidCategoryDetailed,
 			&tx.CategoryID,
-			&tx.LastModifiedBy,
+			&tx.LastModifiedByID,
+			&tx.LastModifiedByUsername,
 			&createdTime,
 			&lastModifiedTime,
 		); err != nil {
 			return nil, err
 		}
+
 		tx.CreatedTime, err = parseTime(createdTime)
 		if err != nil {
 			return nil, err
@@ -168,7 +182,12 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 		if err != nil {
 			return nil, err
 		}
-		txs = append(txs, tx)
+		transaction, err := parse.ParseTransactionDTO(tx)
+		if err != nil {
+			return nil, err
+		}
+
+		txs = append(txs, transaction)
 	}
 	return txs, rows.Err()
 }

@@ -27,7 +27,7 @@
     {{/* Amount hero */}}
     <div class="flex flex-col items-center gap-1 py-4">
       <p class="text-4xl font-bold {{ .Transaction.AmountClass }}">
-        {{ .Transaction.Amount }}
+        {{ .Transaction.FormattedAmount }}
       </p>
       {{ if .Transaction.Pending }}
         <span class="badge badge-ghost text-xs">Pending</span>
@@ -43,7 +43,7 @@
             {{ .Transaction.DisplayName }}
           </span>
         </div>
-        {{ if .Transaction.MerchantName }}
+        {{ if .Transaction.MerchantName.Valid }}
           <div class="flex justify-between">
             <span class="text-sm text-base-content/60">Description</span>
             <span class="text-sm text-right"
@@ -53,7 +53,7 @@
         {{ end }}
         <div class="flex justify-between">
           <span class="text-sm text-base-content/60">Date</span>
-          <span class="text-sm">{{ .Transaction.Date }}</span>
+          <span class="text-sm">{{ .Transaction.FormattedDate }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-sm text-base-content/60">Payment channel</span>
@@ -61,10 +61,10 @@
             >{{ .Transaction.PaymentChannel }}</span
           >
         </div>
-        {{ if .Transaction.PlaidCategory }}
+        {{ if .Transaction.PlaidCategoryPrimary.Valid }}
           <div class="flex justify-between">
             <span class="text-sm text-base-content/60">Category</span>
-            <span class="text-sm">{{ .Transaction.PlaidCategory }}</span>
+            <span class="text-sm">{{ .Transaction.PlaidCategoryPrimary }}</span>
           </div>
         {{ end }}
       </div>
@@ -87,7 +87,7 @@
           {{ range .Categories }}
             <option
               value="{{ .ID }}"
-              {{ if eq $.Transaction.CategoryID .ID }}selected{{ end }}
+              {{ if eq $.Transaction.CategoryID.Int .ID }}selected{{ end }}
             >
               {{ .Name }}
             </option>
