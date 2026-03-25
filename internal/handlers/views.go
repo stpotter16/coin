@@ -144,10 +144,11 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 		groupIndex := map[string]int{}
 		for _, tx := range txs {
 			dateLabel := tx.GroupDate()
-			if i, ok := groupIndex[tx.TransactionDate]; ok {
+			dateKey := tx.TransactionDate.Format("2006-01-02")
+			if i, ok := groupIndex[dateKey]; ok {
 				groups[i].Transactions = append(groups[i].Transactions, tx)
 			} else {
-				groupIndex[tx.TransactionDate] = len(groups)
+				groupIndex[dateKey] = len(groups)
 				groups = append(groups, types.TransactionGroup{
 					Date:         dateLabel,
 					Transactions: []types.Transaction{tx},

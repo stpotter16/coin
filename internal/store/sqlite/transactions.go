@@ -34,7 +34,7 @@ func (s Store) UpsertTransaction(ctx context.Context, tx types.Transaction) erro
 		tx.PlaidTransactionID,
 		tx.AccountID,
 		tx.Amount,
-		tx.TransactionDate,
+		tx.TransactionDate.Format("2006-01-02"),
 		tx.Description,
 		tx.MerchantName,
 		tx.Pending,

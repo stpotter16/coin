@@ -1,16 +1,75 @@
 package parse
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/plaid/plaid-go/v21/plaid"
 	"github.com/stpotter16/coin/internal/types"
 )
 
-func ParsePlaidTransaction(pt plaid.Transaction, accountID int) types.Transaction {
+func ParseTransactionCategoryPost(r *http.Request) (types.TransactionCategoryRequest, error) {
+	var body struct {
+		CategoryID string `json:"category_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return types.TransactionCategoryRequest{}, err
+	}
+
+	var categoryID *int
+	if body.CategoryID != "" {
+		parsed, err := strconv.Atoi(body.CategoryID)
+		if err != nil {
+			return types.TransactionCategoryRequest{}, errors.New("invalid category_id")
+		}
+		categoryID = &parsed
+	}
+
+	return types.TransactionCategoryRequest{CategoryID: categoryID}, nil
+}
+
+const MaxNoteLength = 2000
+
+func ParseTransactionNotePost(r *http.Request) (types.TransactionNoteRequest, error) {
+	var body struct {
+		TransactionID int    `json:"transaction_id"`
+		Note          string `json:"note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return types.TransactionNoteRequest{}, err
+	}
+
+	if body.TransactionID == 0 {
+		return types.TransactionNoteRequest{}, errors.New("transaction_id is required")
+	}
+	if body.Note == "" {
+		return types.TransactionNoteRequest{}, errors.New("note is required")
+	}
+	if len([]rune(body.Note)) > MaxNoteLength {
+		return types.TransactionNoteRequest{}, errors.New("note exceeds maximum length")
+	}
+
+	return types.TransactionNoteRequest{
+		TransactionID: body.TransactionID,
+		Note:          body.Note,
+	}, nil
+}
+
+func ParsePlaidTransaction(pt plaid.Transaction, accountID int) (types.Transaction, error) {
+	date, err := time.Parse("2006-01-02", pt.GetDate())
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("invalid transaction date %q: %w", pt.GetDate(), err)
+	}
+
 	t := types.Transaction{
 		PlaidTransactionID: pt.GetTransactionId(),
 		AccountID:          accountID,
 		Amount:             pt.GetAmount(),
-		TransactionDate:    pt.GetDate(),
+		TransactionDate:    date,
 		Description:        pt.GetName(),
 		Pending:            pt.GetPending(),
 		PaymentChannel:     pt.GetPaymentChannel(),
@@ -28,16 +87,21 @@ func ParsePlaidTransaction(pt plaid.Transaction, accountID int) types.Transactio
 		t.PlaidCategoryDetailed = types.PlaidCategory{Value: &detailed}
 	}
 
-	return t
+	return t, nil
 }
 
 func ParseTransactionDTO(dto types.TransactionDTO) (types.Transaction, error) {
+	date, err := time.Parse("2006-01-02", dto.TransactionDate)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("invalid transaction date %q: %w", dto.TransactionDate, err)
+	}
+
 	t := types.Transaction{
 		ID:                 dto.ID,
 		PlaidTransactionID: dto.PlaidTransactionID,
 		AccountID:          dto.AccountID,
 		Amount:             dto.Amount,
-		TransactionDate:    dto.TransactionDate,
+		TransactionDate:    date,
 		Description:        dto.Description,
 		Pending:            dto.Pending,
 		PaymentChannel:     dto.PaymentChannel,

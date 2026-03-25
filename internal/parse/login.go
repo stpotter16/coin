@@ -2,6 +2,7 @@ package parse
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/stpotter16/coin/internal/types"
@@ -13,14 +14,16 @@ func ParseLoginPost(r *http.Request) (types.LoginRequest, error) {
 		Password string `json:"password"`
 	}{}
 
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&body); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		return types.LoginRequest{}, err
 	}
 
-	request := types.LoginRequest{
+	if body.Username == "" || body.Password == "" {
+		return types.LoginRequest{}, errors.New("username and password are required")
+	}
+
+	return types.LoginRequest{
 		Username: body.Username,
 		Password: body.Password,
-	}
-	return request, nil
+	}, nil
 }

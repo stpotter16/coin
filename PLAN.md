@@ -297,22 +297,11 @@ Full transaction list with filtering.
 
 Loose items to revisit before considering the project production-ready.
 
-### 1. Internal Types
-
-Review the types in `internal/types/` for consistency and correctness:
-
-- Are all nullable fields (`*string`, `*float64`, `*int`) actually nullable in the DB schema, and vice versa?
-- Are there types that are only used in one place and could be simplified or inlined?
-- Display types (`TransactionDisplay`, `TransactionDetailDisplay`, `AccountDisplay`, `InstitutionWithAccounts`) were added pragmatically — review whether the split between raw types and display types is in the right place.
-- `TransactionFilter` — consider whether it belongs in `types/` or closer to the store package.
-
 ### 2. Input Parsing at Application Boundaries
 
-Tighten up how external data (HTTP requests, Plaid API responses) is parsed into internal types:
+✅ All POST handlers delegate JSON decoding and field validation to `internal/parse` functions. Handler bodies are thin.
 
-- HTTP handlers currently parse form values inline with minimal validation — consider a dedicated parsing/validation layer.
-- Plaid sync maps raw SDK types to internal types in `internal/sync/sync.go` — audit for missing fields or incorrect mappings.
-- Date/time handling: `TransactionDate` is stored and passed as a plain `string` (`YYYY-MM-DD`) — decide whether it should be a `time.Time` with a custom marshaler or stay as a string with a well-defined format constant.
+✅ `TransactionDate` is now `time.Time` on the `Transaction` type. Parsing from the Plaid `YYYY-MM-DD` string happens once at the boundary (`ParsePlaidTransaction`, `ParseTransactionDTO`). The DTO still holds a `string` for DB scanning; `UpsertTransaction` formats it back to `YYYY-MM-DD` for storage. Display methods (`FormattedDate`, `GroupDate`) call `.Format()` directly with no error path.
 
 ### 3. Unit Test Coverage
 
@@ -326,12 +315,12 @@ Currently there are no unit tests. Priority areas:
 
 ### 4. Forms vs. JavaScript
 
-Currently there is a mix: some interactions use plain HTML form POSTs (category override, add note) and some use JS-driven fetches (Plaid Link exchange, account filter). Decide on a consistent approach:
+✅ All mutations use `fetch` calls in nonce-gated `<script type="module">` blocks. No plain HTML form POSTs remain.
 
-- Plain form POSTs are simpler and work without JS but require full page reloads.
-- JS fetches allow partial updates but add complexity and CSP nonce requirements.
-- At minimum, document the chosen approach and make the existing code consistent with it.
-- The category override and add-note forms currently do a full redirect on success — consider whether inline feedback (success/error without reload) is worth the added JS complexity.
+- Plaid Link flow — JS-driven by necessity (Plaid widget).
+- Account filter dropdown — JS updates the URL on change.
+- Category override (`POST /transactions/:id`) — fetch POST, UI updated inline.
+- Add note (`POST /transaction-notes`) — fetch POST, new note appended inline.
 
 ### 5. Other
 

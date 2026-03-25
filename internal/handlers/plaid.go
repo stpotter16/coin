@@ -8,6 +8,7 @@ import (
 
 	"github.com/stpotter16/coin/internal/crypto"
 	"github.com/stpotter16/coin/internal/handlers/sessions"
+	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/plaidclient"
 	"github.com/stpotter16/coin/internal/store"
 	"github.com/stpotter16/coin/internal/sync"
@@ -42,13 +43,8 @@ func plaidExchangePost(
 	encryptionKey []byte,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.PlaidExchangeRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		if req.PublicToken == "" || req.InstitutionID == "" || req.InstitutionName == "" {
+		req, err := parse.ParsePlaidExchangePost(r)
+		if err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}

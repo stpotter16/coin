@@ -1,12 +1,14 @@
 package handlers
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/stpotter16/coin/internal/handlers/sessions"
+	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/store"
 	"github.com/stpotter16/coin/internal/types"
 )
@@ -19,28 +21,19 @@ func transactionCategoryPost(s store.Store) http.HandlerFunc {
 			return
 		}
 
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Invalid form", http.StatusBadRequest)
+		req, err := parse.ParseTransactionCategoryPost(r)
+		if err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 
-		var categoryID *int
-		if v := r.FormValue("category_id"); v != "" {
-			parsed, err := strconv.Atoi(v)
-			if err != nil {
-				http.Error(w, "Invalid category", http.StatusBadRequest)
-				return
-			}
-			categoryID = &parsed
-		}
-
-		if err := s.UpdateTransactionCategory(r.Context(), id, categoryID); err != nil {
+		if err := s.UpdateTransactionCategory(r.Context(), id, req.CategoryID); err != nil {
 			log.Printf("transactionCategoryPost: failed to update category for transaction %d: %v", id, err)
 			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
 			return
 		}
 
-		http.Redirect(w, r, fmt.Sprintf("/transactions/%d", id), http.StatusSeeOther)
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -52,33 +45,29 @@ func transactionNotePost(s store.Store, sessionManager sessions.SessionManger) h
 			return
 		}
 
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Invalid form", http.StatusBadRequest)
-			return
-		}
-
-		transactionID, err := strconv.Atoi(r.FormValue("transaction_id"))
+		r.Body = http.MaxBytesReader(w, r.Body, 64*1024)
+		req, err := parse.ParseTransactionNotePost(r)
 		if err != nil {
-			http.Error(w, "Invalid transaction", http.StatusBadRequest)
+			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 
-		note := r.FormValue("note")
-		if note == "" {
-			http.Redirect(w, r, fmt.Sprintf("/transactions/%d", transactionID), http.StatusSeeOther)
-			return
-		}
-
+		createdAt := time.Now()
 		if err := s.CreateTransactionNote(r.Context(), types.TransactionNote{
-			TransactionID: transactionID,
+			TransactionID: req.TransactionID,
 			UserID:        session.UserId,
-			Note:          note,
+			Note:          req.Note,
 		}); err != nil {
-			log.Printf("transactionNotePost: failed to create note for transaction %d: %v", transactionID, err)
+			log.Printf("transactionNotePost: failed to create note for transaction %d: %v", req.TransactionID, err)
 			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
 			return
 		}
 
-		http.Redirect(w, r, fmt.Sprintf("/transactions/%d", transactionID), http.StatusSeeOther)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{
+			"note":         req.Note,
+			"created_time": createdAt.Format("Jan 2, 2006 3:04 PM"),
+		})
 	}
 }

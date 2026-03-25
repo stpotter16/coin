@@ -32,7 +32,7 @@ type Transaction struct {
 	PlaidTransactionID    string
 	AccountID             int
 	Amount                float64
-	TransactionDate       string // YYYY-MM-DD
+	TransactionDate       time.Time
 	Description           string
 	MerchantName          MerchantName
 	Pending               bool
@@ -69,19 +69,11 @@ func (t Transaction) AmountClass() string {
 }
 
 func (t Transaction) FormattedDate() string {
-	parsed, err := time.Parse("2006-01-02", t.TransactionDate)
-	if err != nil {
-		return t.TransactionDate
-	}
-	return parsed.Format("Mon, Jan 2, 2006")
+	return t.TransactionDate.Format("Mon, Jan 2, 2006")
 }
 
 func (t Transaction) GroupDate() string {
-	parsed, err := time.Parse("2006-01-02", t.TransactionDate)
-	if err != nil {
-		return t.TransactionDate
-	}
-	return parsed.Format("Mon, Jan 2")
+	return t.TransactionDate.Format("Mon, Jan 2")
 }
 
 type MerchantName struct {

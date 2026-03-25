@@ -101,7 +101,11 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 				log.Printf("sync: unknown account id %s, skipping transaction %s", pt.GetAccountId(), pt.GetTransactionId())
 				continue
 			}
-			if err := s.store.UpsertTransaction(ctx, parse.ParsePlaidTransaction(pt, accountID)); err != nil {
+			tx, err := parse.ParsePlaidTransaction(pt, accountID)
+			if err != nil {
+				return err
+			}
+			if err := s.store.UpsertTransaction(ctx, tx); err != nil {
 				return err
 			}
 		}
@@ -112,7 +116,11 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 				log.Printf("sync: unknown account id %s, skipping transaction %s", pt.GetAccountId(), pt.GetTransactionId())
 				continue
 			}
-			if err := s.store.UpsertTransaction(ctx, parse.ParsePlaidTransaction(pt, accountID)); err != nil {
+			tx, err := parse.ParsePlaidTransaction(pt, accountID)
+			if err != nil {
+				return err
+			}
+			if err := s.store.UpsertTransaction(ctx, tx); err != nil {
 				return err
 			}
 		}

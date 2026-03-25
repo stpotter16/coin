@@ -1,5 +1,86 @@
 {{ define "title" }}Transaction{{ end }}
-{{ define "script-tags" }}{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    // Category override
+    const categorySaveBtn = document.getElementById("category-save-btn");
+    categorySaveBtn?.addEventListener("click", async () => {
+      const select = document.getElementById("category-select");
+      const errorEl = document.getElementById("category-error");
+      const successEl = document.getElementById("category-success");
+
+      categorySaveBtn.disabled = true;
+      errorEl.classList.add("hidden");
+      successEl.classList.add("hidden");
+
+      try {
+        const resp = await fetch("/transactions/{{ .Transaction.ID }}", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ category_id: select.value }),
+        });
+        if (!resp.ok) throw new Error();
+        successEl.classList.remove("hidden");
+        setTimeout(() => successEl.classList.add("hidden"), 2000);
+      } catch {
+        errorEl.classList.remove("hidden");
+      } finally {
+        categorySaveBtn.disabled = false;
+      }
+    });
+
+    // Add note
+    const addNoteBtn = document.getElementById("add-note-btn");
+    addNoteBtn?.addEventListener("click", async () => {
+      const input = document.getElementById("note-input");
+      const errorEl = document.getElementById("note-error");
+      const note = input.value.trim();
+      if (!note) return;
+
+      addNoteBtn.disabled = true;
+      errorEl.classList.add("hidden");
+
+      try {
+        const resp = await fetch("/transaction-notes", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction_id: {{ .Transaction.ID }}, note }),
+        });
+        if (!resp.ok) throw new Error();
+        const { note: noteText, created_time: createdTime } = await resp.json();
+
+        document.getElementById("notes-empty")?.remove();
+
+        const list = document.getElementById("notes-list");
+
+        const noteEl = document.createElement("p");
+        noteEl.className = "text-sm";
+        noteEl.textContent = noteText;
+
+        const timeEl = document.createElement("p");
+        timeEl.className = "text-xs text-base-content/40 mt-1";
+        timeEl.textContent = createdTime;
+
+        const cardBody = document.createElement("div");
+        cardBody.className = "card-body p-3";
+        cardBody.appendChild(noteEl);
+        cardBody.appendChild(timeEl);
+
+        const li = document.createElement("li");
+        li.className = "card bg-base-200 shadow";
+        li.appendChild(cardBody);
+        list.appendChild(li);
+
+        input.value = "";
+      } catch {
+        errorEl.classList.remove("hidden");
+      } finally {
+        addNoteBtn.disabled = false;
+      }
+    });
+  </script>
+{{ end }}
 {{ define "page-content" }}
   <div class="flex flex-col gap-6">
     {{/* Back link */}}
@@ -77,12 +158,8 @@
       >
         Override Category
       </h2>
-      <form
-        method="POST"
-        action="/transactions/{{ .Transaction.ID }}"
-        class="flex gap-2"
-      >
-        <select name="category_id" class="select select-bordered flex-1">
+      <div class="flex gap-2">
+        <select id="category-select" class="select select-bordered flex-1">
           <option value="">None</option>
           {{ range .Categories }}
             <option
@@ -93,8 +170,12 @@
             </option>
           {{ end }}
         </select>
-        <button type="submit" class="btn btn-primary">Save</button>
-      </form>
+        <button id="category-save-btn" class="btn btn-primary">Save</button>
+      </div>
+      <p id="category-success" class="text-success text-sm hidden">Saved!</p>
+      <p id="category-error" class="text-error text-sm hidden">
+        Failed to save. Try again.
+      </p>
     </div>
 
     {{/* Notes */}}
@@ -105,42 +186,39 @@
         Notes
       </h2>
 
-      {{ if .Notes }}
-        <ul class="flex flex-col gap-2">
-          {{ range .Notes }}
-            <li class="card bg-base-200 shadow">
-              <div class="card-body p-3">
-                <p class="text-sm">{{ .Note }}</p>
-                <p class="text-xs text-base-content/40 mt-1">
-                  {{ .CreatedTime.Format "Jan 2, 2006 3:04 PM" }}
-                </p>
-              </div>
-            </li>
-          {{ end }}
-        </ul>
-      {{ else }}
-        <p class="text-sm text-base-content/40">No notes yet.</p>
+      <ul id="notes-list" class="flex flex-col gap-2">
+        {{ range .Notes }}
+          <li class="card bg-base-200 shadow">
+            <div class="card-body p-3">
+              <p class="text-sm">{{ .Note }}</p>
+              <p class="text-xs text-base-content/40 mt-1">
+                {{ .CreatedTime.Format "Jan 2, 2006 3:04 PM" }}
+              </p>
+            </div>
+          </li>
+        {{ end }}
+      </ul>
+      {{ if not .Notes }}
+        <p id="notes-empty" class="text-sm text-base-content/40">
+          No notes yet.
+        </p>
       {{ end }}
 
 
-      <form
-        method="POST"
-        action="/transaction-notes"
-        class="flex flex-col gap-2"
-      >
-        <input
-          type="hidden"
-          name="transaction_id"
-          value="{{ .Transaction.ID }}"
-        />
+      <div class="flex flex-col gap-2">
         <textarea
-          name="note"
+          id="note-input"
           class="textarea textarea-bordered w-full"
           placeholder="Add a note..."
           rows="2"
         ></textarea>
-        <button type="submit" class="btn btn-primary w-full">Add note</button>
-      </form>
+        <button id="add-note-btn" class="btn btn-primary w-full">
+          Add note
+        </button>
+        <p id="note-error" class="text-error text-sm hidden">
+          Failed to add note. Try again.
+        </p>
+      </div>
     </div>
   </div>
 {{ end }}
