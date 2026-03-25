@@ -320,7 +320,24 @@ Currently there are no unit tests. Priority areas:
 - Category override (`POST /transactions/:id`) — fetch POST, UI updated inline.
 - Add note (`POST /transaction-notes`) — fetch POST, new note appended inline.
 
-### 5. Other
+### 5. Richer User References on Types
+
+Several types store a user relationship as a bare `int` ID rather than a `User` struct. This is inconsistent with `Transaction.LastModifiedBy`, which is already a `NullableUser`. The affected types and their fields are:
+
+| Type              | Field(s)                         | Nullable? |
+| ----------------- | -------------------------------- | --------- |
+| `Category`        | `CreatedBy`, `LastModifiedBy`    | No        |
+| `TransactionNote` | `UserID` (rename to `CreatedBy`) | No        |
+
+**Changes required per type:**
+
+- **`Category`** — change `CreatedBy int` and `LastModifiedBy int` to `CreatedBy User` and `LastModifiedBy User`. Add a `CategoryDTO` with `sql.NullInt64`/`sql.NullString` fields for scanning. Update `GetCategories` to LEFT JOIN the user table twice (aliased). Add `ParseCategoryDTO` in `internal/parse/category.go`.
+
+- **`TransactionNote`** — rename `UserID int` to `CreatedBy User`. Add a `TransactionNoteDTO`. Update `GetNotesByTransactionID` to JOIN the user table. Add `ParseTransactionNoteDTO` in a new parse file or alongside the existing note logic.
+
+- **Handlers** — `categoryCreatePost`, `categoryUpdatePost`, and `transactionNotePost` pass `session.UserId` (an `int`) to store methods. These store method signatures take `userID int` for writes and don't need to change — the enriched `User` struct is only populated on reads.
+
+### 6. Other
 
 - **Admin user management** in Settings — ⬜ not yet built.
 - **Category management** — ✅ Done. `/categories` page with inline add, edit (PUT), delete. Linked from Settings. Delete nullifies any transactions referencing the category before removing it.
