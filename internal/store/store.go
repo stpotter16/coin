@@ -9,6 +9,7 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 var ErrTransactionNotFound = errors.New("transaction not found")
+var ErrCategoryNotFound = errors.New("category not found")
 
 type Store interface {
 	// Users
@@ -34,6 +35,9 @@ type Store interface {
 
 	// Categories
 	GetCategories(ctx context.Context) ([]types.Category, error)
+	CreateCategory(ctx context.Context, name string, userID int) error
+	UpdateCategory(ctx context.Context, id int, name string, userID int) error
+	DeleteCategory(ctx context.Context, id int) error
 
 	// Transaction notes
 	GetNotesByTransactionID(ctx context.Context, transactionID int) ([]types.TransactionNote, error)

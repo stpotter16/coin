@@ -2,7 +2,9 @@ package sqlite
 
 import (
 	"context"
+	"time"
 
+	"github.com/stpotter16/coin/internal/store"
 	"github.com/stpotter16/coin/internal/types"
 )
 
@@ -41,4 +43,53 @@ func (s Store) GetCategories(ctx context.Context) ([]types.Category, error) {
 	}
 
 	return cats, rows.Err()
+}
+
+func (s Store) CreateCategory(ctx context.Context, name string, userID int) error {
+	now := formatTime(time.Now().UTC())
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO category (name, created_by, last_modified_by, created_time, last_modified_time)
+		VALUES (?, ?, ?, ?, ?)`,
+		name, userID, userID, now, now,
+	)
+	return err
+}
+
+func (s Store) UpdateCategory(ctx context.Context, id int, name string, userID int) error {
+	now := formatTime(time.Now().UTC())
+	result, err := s.db.Exec(ctx,
+		`UPDATE category SET name = ?, last_modified_by = ?, last_modified_time = ? WHERE id = ?`,
+		name, userID, now, id,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return store.ErrCategoryNotFound
+	}
+	return nil
+}
+
+func (s Store) DeleteCategory(ctx context.Context, id int) error {
+	if _, err := s.db.Exec(ctx,
+		`UPDATE transactions SET category_id = NULL WHERE category_id = ?`, id,
+	); err != nil {
+		return err
+	}
+	result, err := s.db.Exec(ctx, `DELETE FROM category WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return store.ErrCategoryNotFound
+	}
+	return nil
 }
