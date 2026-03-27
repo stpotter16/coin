@@ -2,7 +2,11 @@
 
 ## Overview
 
-Coin is a personal finance tool that syncs transaction data from Plaid into a local SQLite database. Data is fetched periodically via polling and cached locally for fast querying, offline access, and user augmentation.
+Coin is a personal finance tool that helps users understand their discretionary spending. It syncs transaction data from Plaid, but the core insight driving the product is the distinction between **fixed** and **flexible** expenses.
+
+Each month the user creates a **plan** — a set of expected income and fixed expense line items. Transactions are then assigned to plan items (income or fixed expense) or left unassigned (implicitly flexible). The primary metric is **remaining discretionary**: actual income received, minus actual fixed expenses paid, minus flexible spending so far.
+
+This is deliberately different from traditional budgeting apps that focus on categories. The user doesn't need to categorise every transaction — they only need to identify which transactions are income or fixed expenses. Everything else is flexible spending by definition.
 
 ## Plaid Hierarchy
 
@@ -53,22 +57,9 @@ One row per account within an item.
 | created_time       | TEXT    | RFC3339                                                  |
 | last_modified_time | TEXT    | RFC3339                                                  |
 
-### `categories`
+### `plaid_transactions`
 
-User-defined transaction categories for local augmentation.
-
-| Column             | Type    | Notes        |
-| ------------------ | ------- | ------------ |
-| id                 | INTEGER | Primary key  |
-| name               | TEXT    | Unique       |
-| created_by         | INTEGER | FK → user.id |
-| last_modified_by   | INTEGER | FK → user.id |
-| created_time       | TEXT    | RFC3339      |
-| last_modified_time | TEXT    | RFC3339      |
-
-### `transactions`
-
-One row per transaction, synced from Plaid. `category_id` is the only user-editable field on this table — notes live in `transaction_notes`.
+Raw transaction data synced from Plaid. Write-only from the sync job — never edited by users or the application layer. Source of truth for what Plaid knows.
 
 | Column                  | Type    | Notes                                                             |
 | ----------------------- | ------- | ----------------------------------------------------------------- |
@@ -79,26 +70,65 @@ One row per transaction, synced from Plaid. `category_id` is the only user-edita
 | transaction_date        | TEXT    | Date of transaction (YYYY-MM-DD)                                  |
 | description             | TEXT    | Plaid's merchant/description string                               |
 | merchant_name           | TEXT    | Cleaned merchant name from Plaid (nullable)                       |
-| pending                 | INTEGER | Boolean: 1 if transaction is pending                              |
+| pending                 | INTEGER | Boolean: 1 if pending                                             |
 | payment_channel         | TEXT    | e.g. "online", "in store", "other"                                |
 | plaid_category_primary  | TEXT    | Plaid `personal_finance_category.primary` (e.g. "FOOD_AND_DRINK") |
 | plaid_category_detailed | TEXT    | Plaid `personal_finance_category.detailed`                        |
-| category_id             | INTEGER | FK → categories.id — user override, nullable                      |
-| last_modified_by        | INTEGER | FK → user.id — nullable, set when user edits category             |
 | created_time            | TEXT    | RFC3339                                                           |
 | last_modified_time      | TEXT    | RFC3339                                                           |
 
+### `transactions`
+
+Domain model transactions. Populated by the transform job from `plaid_transactions`, or entered manually by the user. This is the table the application layer reads from exclusively.
+
+| Column               | Type    | Notes                                                                             |
+| -------------------- | ------- | --------------------------------------------------------------------------------- |
+| id                   | INTEGER | Primary key                                                                       |
+| plaid_transaction_id | TEXT    | FK → plaid_transactions.plaid_transaction_id — null for manually entered rows     |
+| account_id           | INTEGER | FK → accounts.id — nullable for manually entered rows not tied to a Plaid account |
+| amount               | REAL    | See Amount Convention section                                                     |
+| transaction_date     | TEXT    | Date of transaction (YYYY-MM-DD)                                                  |
+| description          | TEXT    | Merchant/description string                                                       |
+| merchant_name        | TEXT    | Nullable                                                                          |
+| pending              | INTEGER | Boolean: 1 if pending                                                             |
+| payment_channel      | TEXT    | Nullable                                                                          |
+| plan_item_id         | INTEGER | FK → plan_items.id — null means unassigned (flexible spending)                    |
+| created_by           | INTEGER | FK → user.id — null for Plaid-sourced rows                                        |
+| created_time         | TEXT    | RFC3339                                                                           |
+| last_modified_time   | TEXT    | RFC3339                                                                           |
+
+### `plans`
+
+One row per calendar month. Locked plans are read-only — their items and transaction assignments cannot be changed.
+
+| Column             | Type    | Notes                    |
+| ------------------ | ------- | ------------------------ |
+| id                 | INTEGER | Primary key              |
+| year               | INTEGER |                          |
+| month              | INTEGER | 1–12                     |
+| locked             | INTEGER | Boolean: 1 if closed out |
+| created_time       | TEXT    | RFC3339                  |
+| last_modified_time | TEXT    | RFC3339                  |
+
+Unique constraint on `(year, month)`.
+
+### `plan_items`
+
+Line items within a plan. Each item is either expected income or a fixed expense.
+
+| Column             | Type    | Notes                                    |
+| ------------------ | ------- | ---------------------------------------- |
+| id                 | INTEGER | Primary key                              |
+| plan_id            | INTEGER | FK → plans.id                            |
+| name               | TEXT    | e.g. "Salary", "Mortgage", "Car Payment" |
+| type               | TEXT    | `income` or `fixed_expense`              |
+| expected_amount    | REAL    | Absolute value — sign derived from type  |
+| created_time       | TEXT    | RFC3339                                  |
+| last_modified_time | TEXT    | RFC3339                                  |
+
 ### `transaction_notes`
 
-Append-only notes on transactions. One transaction can have many notes. Notes are immutable — to correct a note, delete and re-add.
-
-| Column         | Type    | Notes                |
-| -------------- | ------- | -------------------- |
-| id             | INTEGER | Primary key          |
-| transaction_id | INTEGER | FK → transactions.id |
-| user_id        | INTEGER | FK → user.id         |
-| note           | TEXT    |                      |
-| created_time   | TEXT    | RFC3339              |
+Removed from scope. Can be re-added later if there is user demand.
 
 ## Amount Convention
 
@@ -113,17 +143,35 @@ On display, positive amounts should be shown in red (expense) and negative amoun
 
 ## Sync Strategy
 
-Transactions are fetched by polling Plaid's `/transactions/sync` endpoint on a periodic schedule. This endpoint uses a **cursor** stored on each `plaid_item` row to return only new, modified, or removed transactions since the last sync — making incremental syncs efficient.
+### Two-Layer Transaction Model
 
-On each sync cycle:
+Transactions flow through two layers:
+
+1. **Raw layer** (`plaid_transactions`) — a faithful cache of what Plaid returns. Written only by the sync job. Never modified by user action or application logic.
+2. **Domain layer** (`transactions`) — what the application reasons about. Populated by a transform job from `plaid_transactions`, or entered manually by the user.
+
+This decoupling means the app can handle transactions that never appear in Plaid (cash, checks, manual entries) while still benefiting from Plaid's automatic sync for everything else.
+
+### Plaid Sync
+
+Polling runs hourly via a goroutine ticker. Each cycle:
 
 1. For each `plaid_item`, call `/transactions/sync` with its stored cursor
-2. Upsert added/modified transactions into the `transactions` table
-3. Delete removed transactions from the `transactions` table
-4. Update the item's `transaction_cursor` with the cursor returned by Plaid
-5. Update account balances from the response
+2. Upsert added/modified raw transactions into `plaid_transactions`
+3. Delete removed transactions from `plaid_transactions`
+4. Update the item's `transaction_cursor` with the next cursor from Plaid
+5. Refresh account balances via `/accounts/get`
 
-Account data (balances) is also refreshed during the sync pass using `/accounts/get`.
+### Transform Job
+
+Runs after each Plaid sync cycle. For each `plaid_transactions` row that does not yet have a corresponding `transactions` row:
+
+1. Create a `transactions` row populated from the raw data
+2. Link it via `plaid_transaction_id`
+
+The job is idempotent — re-running it never creates duplicate domain transactions. When Plaid sends a **modified** raw transaction, the transform job (or a reconciliation step) updates the Plaid-sourced fields on the domain row while preserving user data (`plan_item_id`). When Plaid sends a **removed** raw transaction, the corresponding domain row is also deleted (plan assignment is lost).
+
+Account data (balances) is refreshed during each sync pass using `/accounts/get`.
 
 ## Security
 
@@ -176,10 +224,11 @@ Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
 1. Load all `plaid_item` rows from the DB
 2. Decrypt each item's `access_token`
 3. Call `/transactions/sync` with the item's stored cursor (nil on first sync)
-4. Upsert `added` and `modified` transactions into `transactions`
-5. Delete `removed` transactions from `transactions`
+4. Upsert `added` and `modified` transactions into `plaid_transactions`
+5. Delete `removed` transactions from `plaid_transactions` (and cascade to `transactions`)
 6. Update the item's `transaction_cursor` with the next cursor from the response
-7. Refresh account balances via `/accounts/get` and upsert into `account`
+7. Refresh account balances via `/accounts/get` and upsert into `accounts`
+8. Run the transform job to create/update domain `transactions` rows
 
 ### Implementation Steps
 
@@ -197,99 +246,95 @@ Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
 
 Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four tabs:
 
-| Tab          | Content                                              |
-| ------------ | ---------------------------------------------------- |
-| Dashboard    | Default view — net cash flow + rollup cards          |
-| Transactions | Full transaction list, filterable by account/date    |
-| Accounts     | Connected institutions and account balances          |
-| Settings     | Plaid connection management; user management (admin) |
+| Tab          | Content                                                   |
+| ------------ | --------------------------------------------------------- |
+| Dashboard    | Remaining discretionary + income/fixed/flexible breakdown |
+| Transactions | Full transaction list, filterable by account/date         |
+| Accounts     | Connected institutions and account balances               |
+| Settings     | Plaid connection management; plan setup; user management  |
 
 ### Implementation Status
 
-| Page               | Status                           |
-| ------------------ | -------------------------------- |
-| Login              | ✅ Done                          |
-| Dashboard          | ✅ Done (data placeholders only) |
-| Settings           | ✅ Done                          |
-| Accounts           | ✅ Done                          |
-| Transactions       | ✅ Done                          |
-| Transaction detail | ✅ Done                          |
-| Categories         | ✅ Done                          |
+| Page               | Status                                          |
+| ------------------ | ----------------------------------------------- |
+| Login              | ✅ Done                                         |
+| Dashboard          | ⚠️ Shell done — needs rewrite for plan model    |
+| Settings           | ✅ Done (categories link will be removed)       |
+| Accounts           | ✅ Done                                         |
+| Transactions       | ⚠️ Shell done — needs plan assignment UI        |
+| Transaction detail | ⚠️ Shell done — category override → plan assign |
+| Categories         | ⚠️ Built but superseded by plan model           |
+| Plan management    | ⬜ Not yet built                                |
 
 ### Dashboard
 
-Primary metric is **net cash flow** for the current month (income − expenses), displayed as a hero card at the top. A month stepper allows navigating to previous months.
+Hero metric: **remaining discretionary** for the current month.
 
-Supporting cards below the hero:
+```
+Remaining Discretionary: $X
+─────────────────────────────
+Income:    $Y expected  /  $Z received
+Fixed:     $Y expected  /  $Z paid
+─────────────────────────────
+Flexible spent so far: $W
+```
 
-- **Total in** — sum of negative amounts (money received) for the period
-- **Total out** — sum of positive amounts (money spent) for the period
-- **Top categories** — ranked breakdown of spending by `category_id` (user override) falling back to `plaid_category_primary`
-- **Recent transactions** — last 5–10 transactions as a quick glance
+A month stepper allows navigating to previous (locked) months. Locked months are read-only.
 
-⬜ Dashboard cards are currently placeholder (`—`). Real data queries are not yet wired up.
+**Key derived values:**
+
+- **Remaining discretionary** = actual income received − actual fixed expenses paid − flexible spending so far
+- **Actual income received** = sum of amounts for transactions assigned to `income` plan items
+- **Actual fixed expenses paid** = sum of amounts for transactions assigned to `fixed_expense` plan items
+- **Flexible spending so far** = sum of amounts for unassigned transactions (positive amounts only)
 
 ### Amount Display
 
 - Positive amounts (money out) shown in red
 - Negative amounts (money in) shown in green
-- Labelled explicitly ("spent" / "received") rather than relying on sign alone
 
 ### Settings
 
-- Lists connected institutions, each as a card with institution name and a "Connected" badge
+- Lists connected institutions with a "Connected" badge
 - "Connect an account" button triggers the Plaid Link flow
-- Error alert displayed on failure, button re-enabled for retry
-- On success, page reloads to show the newly connected institution
-- "Manage categories" button links to `/categories`
-- Admin-only user management section: ⬜ planned (not yet built)
+- Plan setup flow for first-time users
+- Admin-only user management: ⬜ not yet built
+- Categories section: ⚠️ to be removed (superseded by plan model)
 
 ### Accounts
 
-Lists connected institutions grouped by institution, with each account shown beneath it.
+Lists connected institutions grouped by institution with each account beneath.
 
-Each account card shows:
+Each account card shows name, subtype, current balance, available balance, last synced time.
 
-- Account name and subtype (e.g. "Checking", "Credit Card")
-- Current balance (large, prominent)
-- Available balance where applicable (smaller, muted)
-- Last synced time
-
-Empty state: prompt to connect an account via a link to Settings.
-
-**Data required from server:** `GetPlaidItems` + `GetAccountsByItemID` per item.
+Empty state: prompt to connect an account via Settings.
 
 ### Transactions
 
 Full transaction list with filtering.
 
-**Filter bar (sticky at top):**
+**Filter bar (sticky):** month stepper + account filter dropdown.
 
-- Month stepper (prev/next arrows, current month label) — same period selector as dashboard
-- Account filter dropdown (All Accounts + each connected account)
+**Transaction list:** grouped by date. Each row shows merchant name (or description), amount (red/green), and assignment status — either the plan item name or an "Unassigned" badge.
 
-**Transaction list:**
+**Transaction detail (`GET /transactions/:id`):**
 
-- Grouped by date (date as a section header)
-- Each row: merchant name (or description if no merchant), amount (red/green), category badge
-- Pending transactions shown with a muted "Pending" label
+- Full transaction details
+- **Plan item assignment** — dropdown of plan items for the current month's plan; saving assigns the transaction to that item
 
-**Transaction detail — separate page (`GET /transactions/:id`):**
+### Plan Management
 
-- Each transaction row links to its detail page
-- Shows: full description, merchant name, date, amount, payment channel, Plaid category
-- Category override: dropdown of user-defined categories, saves via `POST /transactions/:id`
-- Notes: list of existing notes + an add-note input, submits via `POST /transaction-notes`
+A plan page (`GET /plan` or `/plan?month=YYYY-MM`) for viewing and editing the current month's plan.
 
-**Data required from server:** query transactions joined with account, filtered by month and optionally account. Pagination or a reasonable limit (e.g. 100 most recent) to keep page load fast.
+**Plan item list:**
 
-### Implementation Steps
+- Income items and fixed expense items listed separately
+- Each shows name, expected amount, actual amount (sum of assigned transactions), variance
+- Add/edit/delete items (blocked if plan is locked)
 
-1. ✅ **Store query** — add `GetTransactions(ctx, TransactionFilter)` to the Store interface and SQLite implementation. Filter struct holds year+month and optional account ID. Returns transactions ordered by date desc.
-2. ✅ **Handler** — wire up `transactionsGet(store)` in `views.go`: parse `month` and `account_id` query params (default to current month), fetch accounts for the filter dropdown, fetch transactions, build display types (pre-format amounts, dates), group by date.
-3. ✅ **Template** — sticky filter bar (month stepper + account dropdown), transaction list grouped by date, amount in red/green, pending label, empty state.
-4. ✅ **Detail page** — `GET /transactions/:id` handler and template; shows full transaction detail, category override dropdown, notes list + add-note input. Back link returns to the transaction list.
-5. ✅ **API endpoints** — `POST /transactions/:id` (update category_id), `POST /transaction-notes` (add note); wire into `routes.go`.
+**Lock/close out:** explicit "Close out month" button — locks the plan and prevents further edits.
+
+**First-use setup flow:** if no plan exists for the current month and no prior month exists to copy from, prompt the user to create their first plan by entering income and fixed expense items.
 
 ## Tidy Up
 
@@ -329,18 +374,13 @@ Several types store a user relationship as a bare `int` ID rather than a `User` 
 | `Category`        | `CreatedBy`, `LastModifiedBy`    | No        |
 | `TransactionNote` | `UserID` (rename to `CreatedBy`) | No        |
 
-**Changes required per type:**
-
-- **`Category`** — change `CreatedBy int` and `LastModifiedBy int` to `CreatedBy User` and `LastModifiedBy User`. Add a `CategoryDTO` with `sql.NullInt64`/`sql.NullString` fields for scanning. Update `GetCategories` to LEFT JOIN the user table twice (aliased). Add `ParseCategoryDTO` in `internal/parse/category.go`.
-
-- **`TransactionNote`** — rename `UserID int` to `CreatedBy User`. Add a `TransactionNoteDTO`. Update `GetNotesByTransactionID` to JOIN the user table. Add `ParseTransactionNoteDTO` in a new parse file or alongside the existing note logic.
-
-- **Handlers** — `categoryCreatePost`, `categoryUpdatePost`, and `transactionNotePost` pass `session.UserId` (an `int`) to store methods. These store method signatures take `userID int` for writes and don't need to change — the enriched `User` struct is only populated on reads.
+Note: both `Category` and `TransactionNote` are being removed from scope entirely, so these changes are moot for those types. This section remains relevant if either is re-added later.
 
 ### 6. Other
 
 - **Admin user management** in Settings — ⬜ not yet built.
-- **Category management** — ✅ Done. `/categories` page with inline add, edit (PUT), delete. Linked from Settings. Delete nullifies any transactions referencing the category before removing it.
-- **Dashboard data** — ⬜ net cash flow, money in/out, top categories, recent transactions are all `—` placeholders.
+- **Category management** — ⚠️ Built (`/categories`) but removed from scope. The `category` table, categories page, and all related store/handler/parse code should be deleted.
+- **Transaction notes** — ⚠️ Built but removed from scope. The `transaction_notes` table, notes section on transaction detail, `POST /transaction-notes` route, and all related store/handler/parse code should be deleted.
+- **Dashboard data** — ⚠️ Shell exists but needs a full rewrite to show remaining discretionary and the income/fixed/flexible breakdown.
 - **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
 - **Pagination** — ⬜ `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.

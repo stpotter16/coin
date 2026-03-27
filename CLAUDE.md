@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-Coin is a personal finance tool written in Go. It syncs transaction data from Plaid into a local SQLite database via polling, caches it locally for fast querying and offline access, and lets users augment transactions with custom categories and notes.
+Coin is a personal finance tool written in Go. The core insight is the distinction between **fixed** expenses (mortgage, car payment — known and expected) and **flexible** expenses (groceries, eating out — discretionary). Each month the user creates a **plan** of expected income and fixed expenses. Transactions are assigned to plan items or left unassigned (implicitly flexible). The primary metric is **remaining discretionary**: actual income minus actual fixed expenses minus flexible spending so far.
+
+Coin syncs transaction data from Plaid into a local SQLite database via polling. Plaid data lands in a raw `plaid_transactions` table; a transform job promotes it into the domain `transactions` table, which is what the application reads. This two-layer model also allows manually entered transactions for things Plaid can't see (cash, checks).
 
 **Stack:** Go · SQLite (`github.com/mattn/go-sqlite3`) · Plaid Go SDK (`github.com/plaid/plaid-go/v21`) · Tailwind CSS + DaisyUI · Go `html/template`
 
@@ -17,6 +19,10 @@ This applies consistently across depository and credit accounts.
 
 ## Architecture Patterns
 
+### Two-Layer Transaction Model
+
+Raw Plaid data lands in `plaid_transactions` (never touched by the app layer). A transform job creates/updates rows in `transactions` (the domain model), linking them via `plaid_transaction_id`. Manually entered transactions have a null `plaid_transaction_id`. The application layer reads exclusively from `transactions`.
+
 ### DTO → Parse → Type
 
 Database rows are scanned into a DTO (e.g. `TransactionDTO`, `AccountDTO`) that uses `sql.Null*` types. A parse function in `internal/parse` converts the DTO into a clean internal type. Internal types use custom wrapper structs instead of `sql.Null*`.
@@ -25,13 +31,13 @@ Database rows are scanned into a DTO (e.g. `TransactionDTO`, `AccountDTO`) that 
 
 Nullable or display-bearing fields use named wrapper structs with `Valid()` and `String()`/`Int()` methods. Go templates call `String()` automatically, so `{{ .PlaidCategoryPrimary }}` renders correctly without explicit method calls. Zero value = absent.
 
-Examples: `MerchantName`, `PlaidCategory`, `CategoryID`, `NullableUser`, `Balance`, `AccountName`
+Examples: `MerchantName`, `PlaidCategory`, `NullableUser`, `Balance`, `AccountName`
 
 ### Parse Layer
 
 All HTTP request parsing and validation lives in `internal/parse`, not in handler bodies. Handler bodies are thin — they call a parse function, call the store, and write a response.
 
-- Parse functions live in the file matching their domain: `parse/transaction.go`, `parse/account.go`, `parse/login.go`, `parse/plaid.go`, `parse/category.go`
+- Parse functions live in the file matching their domain: `parse/transaction.go`, `parse/account.go`, `parse/login.go`, `parse/plaid.go`
 - Do NOT create a new file per parse function — add to the existing domain file
 - Request types (e.g. `TransactionCategoryRequest`) live in `internal/types/` in their own file (e.g. `transaction_request.go`)
 
@@ -46,7 +52,7 @@ All mutations use `fetch` calls in nonce-gated `<script type="module" nonce="{{ 
 | Thing                  | Location                                                                  |
 | ---------------------- | ------------------------------------------------------------------------- |
 | View handlers          | `internal/handlers/views.go` — all in one file                            |
-| API handlers           | `internal/handlers/<domain>.go` (e.g. `transactions.go`, `categories.go`) |
+| API handlers           | `internal/handlers/<domain>.go` (e.g. `transactions.go`, `plan.go`)       |
 | All routes             | `internal/handlers/routes.go`                                             |
 | Store interface        | `internal/store/store.go`                                                 |
 | SQLite implementations | `internal/store/sqlite/<domain>.go`                                       |
