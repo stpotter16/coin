@@ -12,15 +12,14 @@ import (
 	"github.com/stpotter16/coin/internal/types"
 )
 
-func (s Store) UpsertTransaction(ctx context.Context, tx types.Transaction) error {
+func (s Store) UpsertPlaidTransaction(ctx context.Context, tx types.Transaction) error {
 	now := formatTime(time.Now().UTC())
 	_, err := s.db.Exec(ctx,
-		`INSERT INTO transactions
+		`INSERT INTO plaid_transactions
 			(plaid_transaction_id, account_id, amount, transaction_date, description,
 			 merchant_name, pending, payment_channel, plaid_category_primary,
-			 plaid_category_detailed, category_id, last_modified_by,
-			 created_time, last_modified_time)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 plaid_category_detailed, created_time, last_modified_time)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(plaid_transaction_id) DO UPDATE SET
 			amount                  = excluded.amount,
 			transaction_date        = excluded.transaction_date,
@@ -41,24 +40,28 @@ func (s Store) UpsertTransaction(ctx context.Context, tx types.Transaction) erro
 		tx.PaymentChannel,
 		tx.PlaidCategoryPrimary,
 		tx.PlaidCategoryDetailed,
-		tx.CategoryID,
-		tx.LastModifiedBy,
 		now,
 		now,
 	)
 	return err
 }
 
+func (s Store) DeletePlaidTransaction(ctx context.Context, plaidTransactionID string) error {
+	_, err := s.db.Exec(ctx,
+		`DELETE FROM plaid_transactions WHERE plaid_transaction_id = ?`,
+		plaidTransactionID,
+	)
+	return err
+}
+
 func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transaction, error) {
 	row := s.db.QueryRow(ctx,
-		`SELECT t.id, t.plaid_transaction_id, t.account_id, t.amount, t.transaction_date,
-		        t.description, t.merchant_name, t.pending, t.payment_channel,
-		        t.plaid_category_primary, t.plaid_category_detailed,
-		        t.category_id, t.last_modified_by, u.username,
-		        t.created_time, t.last_modified_time
-		FROM transactions t
-		LEFT JOIN user u ON t.last_modified_by = u.id
-		WHERE t.id = ?`,
+		`SELECT id, plaid_transaction_id, account_id, amount, transaction_date,
+		        description, merchant_name, pending, payment_channel,
+		        plaid_category_primary, plaid_category_detailed,
+		        created_time, last_modified_time
+		FROM plaid_transactions
+		WHERE id = ?`,
 		id,
 	)
 
@@ -76,9 +79,6 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		&tx.PaymentChannel,
 		&tx.PlaidCategoryPrimary,
 		&tx.PlaidCategoryDetailed,
-		&tx.CategoryID,
-		&tx.LastModifiedByID,
-		&tx.LastModifiedByUsername,
 		&createdTime,
 		&lastModifiedTime,
 	)
@@ -97,51 +97,28 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 	if err != nil {
 		return types.Transaction{}, err
 	}
-	transaction, err := parse.ParseTransactionDTO(tx)
-	if err != nil {
-		return types.Transaction{}, err
-	}
 
-	return transaction, nil
-}
-
-func (s Store) UpdateTransactionCategory(ctx context.Context, id int, categoryID *int) error {
-	now := formatTime(time.Now().UTC())
-	_, err := s.db.Exec(ctx,
-		`UPDATE transactions SET category_id = ?, last_modified_time = ? WHERE id = ?`,
-		categoryID, now, id,
-	)
-	return err
-}
-
-func (s Store) DeleteTransaction(ctx context.Context, plaidTransactionID string) error {
-	_, err := s.db.Exec(ctx,
-		`DELETE FROM transactions WHERE plaid_transaction_id = ?`,
-		plaidTransactionID,
-	)
-	return err
+	return parse.ParseTransactionDTO(tx)
 }
 
 func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error) {
 	prefix := fmt.Sprintf("%04d-%02d-", filter.Year, filter.Month)
 
 	query := `
-		SELECT t.id, t.plaid_transaction_id, t.account_id, t.amount, t.transaction_date,
-		       t.description, t.merchant_name, t.pending, t.payment_channel,
-		       t.plaid_category_primary, t.plaid_category_detailed,
-		       t.category_id, t.last_modified_by, u.username,
-		       t.created_time, t.last_modified_time
-		FROM transactions t
-		LEFT JOIN user u ON t.last_modified_by = u.id
-		WHERE t.transaction_date LIKE ?`
+		SELECT id, plaid_transaction_id, account_id, amount, transaction_date,
+		       description, merchant_name, pending, payment_channel,
+		       plaid_category_primary, plaid_category_detailed,
+		       created_time, last_modified_time
+		FROM plaid_transactions
+		WHERE transaction_date LIKE ?`
 	args := []any{prefix + "%"}
 
 	if filter.AccountID != nil {
-		query += " AND t.account_id = ?"
+		query += " AND account_id = ?"
 		args = append(args, *filter.AccountID)
 	}
 
-	query += " ORDER BY t.transaction_date DESC, t.id DESC"
+	query += " ORDER BY transaction_date DESC, id DESC"
 
 	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
@@ -165,9 +142,6 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 			&tx.PaymentChannel,
 			&tx.PlaidCategoryPrimary,
 			&tx.PlaidCategoryDetailed,
-			&tx.CategoryID,
-			&tx.LastModifiedByID,
-			&tx.LastModifiedByUsername,
 			&createdTime,
 			&lastModifiedTime,
 		); err != nil {
@@ -182,6 +156,7 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 		if err != nil {
 			return nil, err
 		}
+
 		transaction, err := parse.ParseTransactionDTO(tx)
 		if err != nil {
 			return nil, err

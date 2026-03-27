@@ -33,18 +33,12 @@ func addRoutes(
 	mux.Handle("GET /transactions/{id}", viewAuthRequired(transactionDetailGet(store)))
 	mux.Handle("GET /accounts", viewAuthRequired(accountsGet(store)))
 	mux.Handle("GET /settings", viewAuthRequired(settingsGet(store)))
-	mux.Handle("GET /categories", viewAuthRequired(categoriesGet(store)))
 
 	// Auth
 	mux.HandleFunc("POST /login", loginPost(authenticator, sessionManager))
 
 	// Session authenticated API endpoints
 	apiAuthRequired := middleware.NewApiAuthenticationRequiredMiddleware(sessionManager)
-	mux.Handle("POST /transactions/{id}", apiAuthRequired(transactionCategoryPost(store)))
-	mux.Handle("POST /transaction-notes", apiAuthRequired(transactionNotePost(store, sessionManager)))
-	mux.Handle("POST /categories", apiAuthRequired(categoryCreatePost(store, sessionManager)))
-	mux.Handle("PUT /categories/{id}", apiAuthRequired(categoryUpdatePut(store, sessionManager)))
-	mux.Handle("DELETE /categories/{id}", apiAuthRequired(categoryDeletePost(store)))
 	mux.Handle("POST /plaid/link/token", apiAuthRequired(plaidLinkTokenPost(plaidClient, sessionManager)))
 	mux.Handle("POST /plaid/link/exchange", apiAuthRequired(plaidExchangePost(plaidClient, store, syncer, encryptionKey)))
 }

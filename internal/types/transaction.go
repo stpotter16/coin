@@ -9,22 +9,19 @@ import (
 )
 
 type TransactionDTO struct {
-	ID                     int
-	PlaidTransactionID     string
-	AccountID              int
-	Amount                 float64
-	TransactionDate        string // YYYY-MM-DD
-	Description            string
-	MerchantName           sql.NullString
-	Pending                bool
-	PaymentChannel         string
-	PlaidCategoryPrimary   sql.NullString
-	PlaidCategoryDetailed  sql.NullString
-	CategoryID             sql.NullInt64
-	LastModifiedByID       sql.NullInt64
-	LastModifiedByUsername sql.NullString
-	CreatedTime            time.Time
-	LastModifiedTime       time.Time
+	ID                    int
+	PlaidTransactionID    string
+	AccountID             int
+	Amount                float64
+	TransactionDate       string // YYYY-MM-DD
+	Description           string
+	MerchantName          sql.NullString
+	Pending               bool
+	PaymentChannel        string
+	PlaidCategoryPrimary  sql.NullString
+	PlaidCategoryDetailed sql.NullString
+	CreatedTime           time.Time
+	LastModifiedTime      time.Time
 }
 
 type Transaction struct {
@@ -39,8 +36,6 @@ type Transaction struct {
 	PaymentChannel        string
 	PlaidCategoryPrimary  PlaidCategory
 	PlaidCategoryDetailed PlaidCategory
-	CategoryID            CategoryID
-	LastModifiedBy        NullableUser
 	CreatedTime           time.Time
 	LastModifiedTime      time.Time
 }
@@ -110,19 +105,4 @@ func (p PlaidCategory) String() string {
 		}
 	}
 	return strings.Join(words, " ")
-}
-
-type CategoryID struct {
-	Value *int
-}
-
-func (c CategoryID) Valid() bool {
-	return c.Value != nil
-}
-
-func (c CategoryID) Int() int {
-	if !c.Valid() {
-		return 0
-	}
-	return *c.Value
 }

@@ -9,7 +9,6 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 var ErrTransactionNotFound = errors.New("transaction not found")
-var ErrCategoryNotFound = errors.New("category not found")
 
 type Store interface {
 	// Users
@@ -26,20 +25,11 @@ type Store interface {
 	GetAccountsByItemID(ctx context.Context, plaidItemID int) ([]types.Account, error)
 	GetAllAccounts(ctx context.Context) ([]types.Account, error)
 
-	// Transactions
-	UpsertTransaction(ctx context.Context, tx types.Transaction) error
-	DeleteTransaction(ctx context.Context, plaidTransactionID string) error
+	// Plaid transactions (raw cache)
+	UpsertPlaidTransaction(ctx context.Context, tx types.Transaction) error
+	DeletePlaidTransaction(ctx context.Context, plaidTransactionID string) error
+
+	// Transactions (domain)
 	GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
-	UpdateTransactionCategory(ctx context.Context, id int, categoryID *int) error
-
-	// Categories
-	GetCategories(ctx context.Context) ([]types.Category, error)
-	CreateCategory(ctx context.Context, name string, userID int) error
-	UpdateCategory(ctx context.Context, id int, name string, userID int) error
-	DeleteCategory(ctx context.Context, id int) error
-
-	// Transaction notes
-	GetNotesByTransactionID(ctx context.Context, transactionID int) ([]types.TransactionNote, error)
-	CreateTransactionNote(ctx context.Context, note types.TransactionNote) error
 }

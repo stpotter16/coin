@@ -15,6 +15,7 @@ import (
 	"github.com/stpotter16/coin/internal/types"
 )
 
+
 type viewProps struct {
 	CsrfToken  string
 	CspNonce   string
@@ -230,30 +231,12 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 			return
 		}
 
-		categories, err := s.GetCategories(r.Context())
-		if err != nil {
-			log.Printf("transactionDetailGet: failed to load categories: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
-			return
-		}
-
-		notes, err := s.GetNotesByTransactionID(r.Context(), id)
-		if err != nil {
-			log.Printf("transactionDetailGet: failed to load notes for transaction %d: %v", id, err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
-			return
-		}
-
 		props := struct {
 			viewProps
 			Transaction types.Transaction
-			Categories  []types.Category
-			Notes       []types.TransactionNote
 		}{
 			viewProps:   viewProps{CspNonce: nonce, ActivePage: "transactions"},
 			Transaction: tx,
-			Categories:  categories,
-			Notes:       notes,
 		}
 
 		if err := t.Execute(w, props); err != nil {
@@ -318,44 +301,6 @@ func accountsGet(store store.Store) http.HandlerFunc {
 	}
 }
 
-func categoriesGet(s store.Store) http.HandlerFunc {
-	t := template.Must(
-		template.New("base.html").
-			ParseFS(
-				templateFS,
-				"templates/layouts/base.html",
-				"templates/layouts/app.html",
-				"templates/pages/categories.html",
-			))
-	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
-		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
-			return
-		}
-
-		categories, err := s.GetCategories(r.Context())
-		if err != nil {
-			log.Printf("categoriesGet: failed to load categories: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
-			return
-		}
-
-		props := struct {
-			viewProps
-			Categories []types.Category
-		}{
-			viewProps:  viewProps{CspNonce: nonce, ActivePage: "settings"},
-			Categories: categories,
-		}
-
-		if err := t.Execute(w, props); err != nil {
-			log.Printf("Could not create categories page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
-		}
-	}
-}
 
 func settingsGet(store store.Store) http.HandlerFunc {
 	t := template.Must(

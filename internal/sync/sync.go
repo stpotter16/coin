@@ -105,7 +105,7 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 			if err != nil {
 				return err
 			}
-			if err := s.store.UpsertTransaction(ctx, tx); err != nil {
+			if err := s.store.UpsertPlaidTransaction(ctx, tx); err != nil {
 				return err
 			}
 		}
@@ -120,13 +120,13 @@ func (s Syncer) syncTransactions(ctx context.Context, item types.PlaidItem, acce
 			if err != nil {
 				return err
 			}
-			if err := s.store.UpsertTransaction(ctx, tx); err != nil {
+			if err := s.store.UpsertPlaidTransaction(ctx, tx); err != nil {
 				return err
 			}
 		}
 
 		for _, rt := range result.Removed {
-			if err := s.store.DeleteTransaction(ctx, rt.GetTransactionId()); err != nil {
+			if err := s.store.DeletePlaidTransaction(ctx, rt.GetTransactionId()); err != nil {
 				return err
 			}
 		}

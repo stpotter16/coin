@@ -11,6 +11,3 @@ type User struct {
 	LastModifiedTime time.Time
 }
 
-type NullableUser struct {
-	Value *User
-}

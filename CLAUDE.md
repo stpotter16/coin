@@ -49,17 +49,17 @@ All mutations use `fetch` calls in nonce-gated `<script type="module" nonce="{{ 
 
 ### Where New Code Goes
 
-| Thing                  | Location                                                                  |
-| ---------------------- | ------------------------------------------------------------------------- |
-| View handlers          | `internal/handlers/views.go` — all in one file                            |
-| API handlers           | `internal/handlers/<domain>.go` (e.g. `transactions.go`, `plan.go`)       |
-| All routes             | `internal/handlers/routes.go`                                             |
-| Store interface        | `internal/store/store.go`                                                 |
-| SQLite implementations | `internal/store/sqlite/<domain>.go`                                       |
-| SQL migrations         | `internal/store/sqlite/migrations/` — numbered sequentially               |
-| Internal types         | `internal/types/<type>.go` — one file per type                            |
-| Request types          | `internal/types/<domain>_request.go`                                      |
-| Parse functions        | `internal/parse/<domain>.go` — one file per domain                        |
+| Thing                  | Location                                                            |
+| ---------------------- | ------------------------------------------------------------------- |
+| View handlers          | `internal/handlers/views.go` — all in one file                      |
+| API handlers           | `internal/handlers/<domain>.go` (e.g. `transactions.go`, `plan.go`) |
+| All routes             | `internal/handlers/routes.go`                                       |
+| Store interface        | `internal/store/store.go`                                           |
+| SQLite implementations | `internal/store/sqlite/<domain>.go`                                 |
+| SQL migrations         | `internal/store/sqlite/migrations/` — numbered sequentially         |
+| Internal types         | `internal/types/<type>.go` — one file per type                      |
+| Request types          | `internal/types/<domain>_request.go`                                |
+| Parse functions        | `internal/parse/<domain>.go` — one file per domain                  |
 
 ### After Making Changes
 
