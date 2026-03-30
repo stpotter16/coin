@@ -20,8 +20,16 @@ type TransactionDTO struct {
 	PaymentChannel        string
 	PlaidCategoryPrimary  sql.NullString
 	PlaidCategoryDetailed sql.NullString
+	PlanItemID            sql.NullInt64
+	PlanItemName          sql.NullString
 	CreatedTime           time.Time
 	LastModifiedTime      time.Time
+}
+
+// AssignedPlanItem holds the plan item a transaction has been assigned to.
+type AssignedPlanItem struct {
+	ID   int
+	Name string
 }
 
 type Transaction struct {
@@ -36,8 +44,13 @@ type Transaction struct {
 	PaymentChannel        string
 	PlaidCategoryPrimary  PlaidCategory
 	PlaidCategoryDetailed PlaidCategory
+	PlanItem              *AssignedPlanItem // nil if unassigned
 	CreatedTime           time.Time
 	LastModifiedTime      time.Time
+}
+
+func (t Transaction) IsAssigned() bool {
+	return t.PlanItem != nil
 }
 
 type TransactionGroup struct {

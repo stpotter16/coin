@@ -1,0 +1,384 @@
+{{ define "title" }}Plan{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    const planID = {{ .Plan.ID }};
+    const locked = {{ .Plan.Locked }};
+
+    // Month stepper
+    document.getElementById("prev-month")?.addEventListener("click", () => {
+      window.location.href = "/plan?month={{ .PrevMonth }}";
+    });
+    document.getElementById("next-month")?.addEventListener("click", () => {
+      window.location.href = "/plan?month={{ .NextMonth }}";
+    });
+
+    if (locked) return;
+
+    // Add item
+    document.getElementById("add-btn")?.addEventListener("click", async () => {
+      const nameEl = document.getElementById("add-name");
+      const typeEl = document.getElementById("add-type");
+      const amountEl = document.getElementById("add-amount");
+      const errorEl = document.getElementById("add-error");
+
+      const name = nameEl.value.trim();
+      const type = typeEl.value;
+      const expected_amount = parseFloat(amountEl.value);
+
+      if (!name || !type || isNaN(expected_amount) || expected_amount <= 0) {
+        errorEl.classList.remove("hidden");
+        return;
+      }
+      errorEl.classList.add("hidden");
+
+      try {
+        const resp = await fetch(`/plan/${planID}/items`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, type, expected_amount }),
+        });
+        if (!resp.ok) throw new Error();
+        window.location.reload();
+      } catch {
+        errorEl.classList.remove("hidden");
+      }
+    });
+
+    // Edit item
+    document.querySelectorAll("[data-edit-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.editId;
+        document.getElementById(`name-${id}`).classList.add("hidden");
+        document.getElementById(`actions-${id}`).classList.add("hidden");
+        document.getElementById(`edit-${id}`).classList.remove("hidden");
+        document.getElementById(`edit-name-${id}`).focus();
+      });
+    });
+
+    document.querySelectorAll("[data-cancel-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.cancelId;
+        document.getElementById(`name-${id}`).classList.remove("hidden");
+        document.getElementById(`actions-${id}`).classList.remove("hidden");
+        document.getElementById(`edit-${id}`).classList.add("hidden");
+      });
+    });
+
+    document.querySelectorAll("[data-save-id]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.saveId;
+        const nameEl = document.getElementById(`edit-name-${id}`);
+        const amountEl = document.getElementById(`edit-amount-${id}`);
+        const errorEl = document.getElementById(`error-${id}`);
+
+        const name = nameEl.value.trim();
+        const expected_amount = parseFloat(amountEl.value);
+        if (!name || isNaN(expected_amount) || expected_amount <= 0) {
+          errorEl.classList.remove("hidden");
+          return;
+        }
+
+        btn.disabled = true;
+        errorEl.classList.add("hidden");
+
+        try {
+          const resp = await fetch(`/plan-items/${id}`, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, expected_amount }),
+          });
+          if (!resp.ok) throw new Error();
+          document.getElementById(`name-${id}`).textContent = name;
+          document.getElementById(`expected-${id}`).textContent =
+            `$${expected_amount.toFixed(2)}`;
+          document.getElementById(`name-${id}`).classList.remove("hidden");
+          document.getElementById(`actions-${id}`).classList.remove("hidden");
+          document.getElementById(`edit-${id}`).classList.add("hidden");
+        } catch {
+          errorEl.classList.remove("hidden");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // Delete item
+    document.querySelectorAll("[data-delete-id]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.deleteId;
+        const errorEl = document.getElementById(`error-${id}`);
+        btn.disabled = true;
+        errorEl.classList.add("hidden");
+
+        try {
+          const resp = await fetch(`/plan-items/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!resp.ok) throw new Error();
+          document.getElementById(`row-${id}`).remove();
+        } catch {
+          errorEl.classList.remove("hidden");
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // Lock plan
+    document.getElementById("lock-btn")?.addEventListener("click", async () => {
+      const errorEl = document.getElementById("lock-error");
+      errorEl.classList.add("hidden");
+
+      try {
+        const resp = await fetch(`/plan/${planID}/lock`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!resp.ok) throw new Error();
+        window.location.reload();
+      } catch {
+        errorEl.classList.remove("hidden");
+      }
+    });
+  </script>
+{{ end }}
+{{ define "page-content" }}
+  <div class="flex flex-col gap-6">
+    {{/* Month stepper */}}
+    <div class="flex items-center justify-between">
+      <button id="prev-month" class="btn btn-ghost btn-sm">&#8249;</button>
+      <h1 class="text-xl font-bold">{{ .Plan.MonthLabel }}</h1>
+      <button id="next-month" class="btn btn-ghost btn-sm">&#8250;</button>
+    </div>
+
+    {{ if .Plan.Locked }}
+      <div class="alert alert-warning text-sm">
+        This plan is locked and cannot be edited.
+      </div>
+    {{ end }}
+
+    {{/* Income section */}}
+    <div class="flex flex-col gap-3">
+      <h2
+        class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+      >
+        Income
+      </h2>
+
+      {{ if .IncomeItems }}
+        <ul class="flex flex-col gap-2">
+          {{ range .IncomeItems }}
+            <li id="row-{{ .ID }}" class="card bg-base-200 shadow">
+              <div class="card-body p-4 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span id="name-{{ .ID }}" class="font-medium"
+                    >{{ .Name }}</span
+                  >
+                  {{ if not $.Plan.Locked }}
+                    <div id="actions-{{ .ID }}" class="flex gap-2">
+                      <button
+                        data-edit-id="{{ .ID }}"
+                        class="btn btn-ghost btn-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        data-delete-id="{{ .ID }}"
+                        class="btn btn-ghost btn-sm text-error"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  {{ end }}
+                </div>
+                <div class="flex justify-between text-sm text-base-content/60">
+                  <span>Expected</span>
+                  <span id="expected-{{ .ID }}">{{ .FormattedExpected }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-base-content/60">Received</span>
+                  <span class="text-success">{{ .FormattedActual }}</span>
+                </div>
+
+                {{/* Inline edit form */}}
+                {{ if not $.Plan.Locked }}
+                  <div id="edit-{{ .ID }}" class="flex gap-2 hidden">
+                    <input
+                      id="edit-name-{{ .ID }}"
+                      type="text"
+                      class="input input-bordered input-sm flex-1"
+                      value="{{ .Name }}"
+                    />
+                    <input
+                      id="edit-amount-{{ .ID }}"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      class="input input-bordered input-sm w-28"
+                      value="{{ .ExpectedAmount }}"
+                    />
+                    <button
+                      data-save-id="{{ .ID }}"
+                      class="btn btn-primary btn-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      data-cancel-id="{{ .ID }}"
+                      class="btn btn-ghost btn-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                {{ end }}
+
+
+                <p id="error-{{ .ID }}" class="text-error text-sm hidden">
+                  Something went wrong. Try again.
+                </p>
+              </div>
+            </li>
+          {{ end }}
+        </ul>
+      {{ else }}
+        <p class="text-sm text-base-content/40">No income items yet.</p>
+      {{ end }}
+    </div>
+
+    {{/* Fixed expenses section */}}
+    <div class="flex flex-col gap-3">
+      <h2
+        class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+      >
+        Fixed Expenses
+      </h2>
+
+      {{ if .ExpenseItems }}
+        <ul class="flex flex-col gap-2">
+          {{ range .ExpenseItems }}
+            <li id="row-{{ .ID }}" class="card bg-base-200 shadow">
+              <div class="card-body p-4 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span id="name-{{ .ID }}" class="font-medium"
+                    >{{ .Name }}</span
+                  >
+                  {{ if not $.Plan.Locked }}
+                    <div id="actions-{{ .ID }}" class="flex gap-2">
+                      <button
+                        data-edit-id="{{ .ID }}"
+                        class="btn btn-ghost btn-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        data-delete-id="{{ .ID }}"
+                        class="btn btn-ghost btn-sm text-error"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  {{ end }}
+                </div>
+                <div class="flex justify-between text-sm text-base-content/60">
+                  <span>Expected</span>
+                  <span id="expected-{{ .ID }}">{{ .FormattedExpected }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-base-content/60">Paid</span>
+                  <span class="text-error">{{ .FormattedActual }}</span>
+                </div>
+
+                {{ if not $.Plan.Locked }}
+                  <div id="edit-{{ .ID }}" class="flex gap-2 hidden">
+                    <input
+                      id="edit-name-{{ .ID }}"
+                      type="text"
+                      class="input input-bordered input-sm flex-1"
+                      value="{{ .Name }}"
+                    />
+                    <input
+                      id="edit-amount-{{ .ID }}"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      class="input input-bordered input-sm w-28"
+                      value="{{ .ExpectedAmount }}"
+                    />
+                    <button
+                      data-save-id="{{ .ID }}"
+                      class="btn btn-primary btn-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      data-cancel-id="{{ .ID }}"
+                      class="btn btn-ghost btn-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                {{ end }}
+
+
+                <p id="error-{{ .ID }}" class="text-error text-sm hidden">
+                  Something went wrong. Try again.
+                </p>
+              </div>
+            </li>
+          {{ end }}
+        </ul>
+      {{ else }}
+        <p class="text-sm text-base-content/40">No fixed expense items yet.</p>
+      {{ end }}
+    </div>
+
+    {{/* Add item form (hidden when locked) */}}
+    {{ if not .Plan.Locked }}
+      <div class="card bg-base-200 shadow">
+        <div class="card-body p-4 flex flex-col gap-3">
+          <h2
+            class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+          >
+            Add Item
+          </h2>
+          <input
+            id="add-name"
+            type="text"
+            class="input input-bordered w-full"
+            placeholder="Name (e.g. Salary, Mortgage)"
+          />
+          <div class="flex gap-2">
+            <select id="add-type" class="select select-bordered flex-1">
+              <option value="income">Income</option>
+              <option value="fixed_expense">Fixed Expense</option>
+            </select>
+            <input
+              id="add-amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              class="input input-bordered w-32"
+              placeholder="Amount"
+            />
+          </div>
+          <button id="add-btn" class="btn btn-primary w-full">Add</button>
+          <p id="add-error" class="text-error text-sm hidden">
+            Failed to add item. Check all fields and try again.
+          </p>
+        </div>
+      </div>
+
+      {{/* Lock plan */}}
+      <div class="flex flex-col gap-2">
+        <button id="lock-btn" class="btn btn-outline btn-warning w-full">
+          Close out month
+        </button>
+        <p id="lock-error" class="text-error text-sm hidden">
+          Failed to lock plan. Try again.
+        </p>
+      </div>
+    {{ end }}
+  </div>
+{{ end }}

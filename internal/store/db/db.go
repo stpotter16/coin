@@ -74,6 +74,18 @@ func (db *DB) Exec(ctx context.Context, query string, args ...any) (sql.Result, 
 	return result, nil
 }
 
+func (db *DB) WithTx(ctx context.Context, fn func(*sql.Tx) error) error {
+	tx, err := db.writeDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
 func (db DB) ExecuteTransaction(ctx context.Context, transactions ...string) error {
 	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {

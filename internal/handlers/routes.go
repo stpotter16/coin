@@ -29,6 +29,7 @@ func addRoutes(
 	// Views that need authentication
 	viewAuthRequired := middleware.NewViewAuthenticationRequiredMiddleware(sessionManager)
 	mux.Handle("GET /{$}", viewAuthRequired(indexGet(store, sessionManager)))
+	mux.Handle("GET /plan", viewAuthRequired(planGet(store, sessionManager)))
 	mux.Handle("GET /transactions", viewAuthRequired(transactionsGet(store)))
 	mux.Handle("GET /transactions/{id}", viewAuthRequired(transactionDetailGet(store)))
 	mux.Handle("GET /accounts", viewAuthRequired(accountsGet(store)))
@@ -39,6 +40,11 @@ func addRoutes(
 
 	// Session authenticated API endpoints
 	apiAuthRequired := middleware.NewApiAuthenticationRequiredMiddleware(sessionManager)
+	mux.Handle("POST /plan/{id}/lock", apiAuthRequired(planLockPost(store)))
+	mux.Handle("POST /plan/{id}/items", apiAuthRequired(planItemCreatePost(store)))
+	mux.Handle("PUT /plan-items/{id}", apiAuthRequired(planItemUpdatePut(store)))
+	mux.Handle("DELETE /plan-items/{id}", apiAuthRequired(planItemDeletePost(store)))
+	mux.Handle("POST /transactions/{id}/plan-item", apiAuthRequired(transactionPlanItemPost(store)))
 	mux.Handle("POST /plaid/link/token", apiAuthRequired(plaidLinkTokenPost(plaidClient, sessionManager)))
 	mux.Handle("POST /plaid/link/exchange", apiAuthRequired(plaidExchangePost(plaidClient, store, syncer, encryptionKey)))
 }

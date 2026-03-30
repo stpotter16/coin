@@ -9,6 +9,8 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 var ErrTransactionNotFound = errors.New("transaction not found")
+var ErrPlanLocked = errors.New("plan is locked")
+var ErrPlanItemNotFound = errors.New("plan item not found")
 
 type Store interface {
 	// Users
@@ -32,7 +34,20 @@ type Store interface {
 	// Transactions (domain)
 	GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
+	UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error
 
 	// Transform
 	RunTransform(ctx context.Context) error
+
+	// Plans
+	GetOrCreatePlan(ctx context.Context, year, month, userID int) (types.Plan, error)
+	GetPlanByMonth(ctx context.Context, year, month int) (types.Plan, bool, error)
+	LockPlan(ctx context.Context, id int) error
+
+	// Plan items
+	GetPlanItems(ctx context.Context, planID int) ([]types.PlanItem, error)
+	GetPlanItemSummaries(ctx context.Context, planID int) ([]types.PlanItemSummary, error)
+	CreatePlanItem(ctx context.Context, item types.PlanItem) (int, error)
+	UpdatePlanItem(ctx context.Context, item types.PlanItem) error
+	DeletePlanItem(ctx context.Context, id int) error
 }

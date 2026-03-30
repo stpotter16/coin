@@ -1,5 +1,37 @@
 {{ define "title" }}Transaction{{ end }}
-{{ define "script-tags" }}{{ end }}
+{{ define "script-tags" }}
+  {{ if .PlanItems }}
+    <script type="module" nonce="{{ .CspNonce }}">
+      document
+        .getElementById("plan-item-save-btn")
+        ?.addEventListener("click", async () => {
+          const select = document.getElementById("plan-item-select");
+          const errorEl = document.getElementById("plan-item-error");
+          const successEl = document.getElementById("plan-item-success");
+
+          errorEl.classList.add("hidden");
+          successEl.classList.add("hidden");
+
+          try {
+            const resp = await fetch(
+              "/transactions/{{ .Transaction.ID }}/plan-item",
+              {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan_item_id: select.value }),
+              },
+            );
+            if (!resp.ok) throw new Error();
+            successEl.classList.remove("hidden");
+            setTimeout(() => successEl.classList.add("hidden"), 2000);
+          } catch {
+            errorEl.classList.remove("hidden");
+          }
+        });
+    </script>
+  {{ end }}
+{{ end }}
 {{ define "page-content" }}
   <div class="flex flex-col gap-6">
     {{/* Back link */}}
@@ -69,5 +101,40 @@
         {{ end }}
       </div>
     </div>
+
+    {{/* Plan item assignment */}}
+    {{ if .PlanItems }}
+      <div class="flex flex-col gap-2">
+        <h2
+          class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+        >
+          Plan Assignment
+        </h2>
+        <div class="flex gap-2">
+          <select id="plan-item-select" class="select select-bordered flex-1">
+            <option value="">Unassigned (flexible)</option>
+            {{ range .PlanItems }}
+              <option
+                value="{{ .ID }}"
+                {{ if and $.Transaction.PlanItem (eq $.Transaction.PlanItem.ID .ID) }}
+                  selected
+                {{ end }}
+              >
+                {{ .Name }}
+              </option>
+            {{ end }}
+          </select>
+          <button id="plan-item-save-btn" class="btn btn-primary">Save</button>
+        </div>
+        <p id="plan-item-success" class="text-success text-sm hidden">Saved!</p>
+        <p id="plan-item-error" class="text-error text-sm hidden">
+          Failed to save. Try again.
+        </p>
+      </div>
+    {{ else }}
+      <p class="text-sm text-base-content/40">
+        No plan for this month — create one to assign transactions.
+      </p>
+    {{ end }}
   </div>
 {{ end }}

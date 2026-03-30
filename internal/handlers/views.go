@@ -16,6 +16,7 @@ import (
 )
 
 
+
 type viewProps struct {
 	CsrfToken  string
 	CspNonce   string
@@ -231,12 +232,30 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 			return
 		}
 
+		// Load plan items for the transaction's month so the user can assign it.
+		var planItems []types.PlanItem
+		txYear, txMonth := tx.TransactionDate.Year(), int(tx.TransactionDate.Month())
+		if plan, found, err := s.GetPlanByMonth(r.Context(), txYear, txMonth); err != nil {
+			log.Printf("transactionDetailGet: failed to load plan for %d-%02d: %v", txYear, txMonth, err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		} else if found {
+			planItems, err = s.GetPlanItems(r.Context(), plan.ID)
+			if err != nil {
+				log.Printf("transactionDetailGet: failed to load plan items: %v", err)
+				http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+				return
+			}
+		}
+
 		props := struct {
 			viewProps
 			Transaction types.Transaction
+			PlanItems   []types.PlanItem
 		}{
 			viewProps:   viewProps{CspNonce: nonce, ActivePage: "transactions"},
 			Transaction: tx,
+			PlanItems:   planItems,
 		}
 
 		if err := t.Execute(w, props); err != nil {
@@ -336,6 +355,87 @@ func settingsGet(store store.Store) http.HandlerFunc {
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create settings page: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+		}
+	}
+}
+
+func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+	t := template.Must(
+		template.New("base.html").
+			ParseFS(
+				templateFS,
+				"templates/layouts/base.html",
+				"templates/layouts/app.html",
+				"templates/pages/plan.html",
+			))
+	return func(w http.ResponseWriter, r *http.Request) {
+		nonce, err := extractCspNonceOnly(r)
+		if err != nil {
+			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			return
+		}
+
+		session, err := sessionManager.SessionFromContext(r.Context())
+		if err != nil {
+			log.Printf("planGet: could not get session from ctx: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+
+		now := time.Now()
+		year, month := now.Year(), int(now.Month())
+		if m := r.URL.Query().Get("month"); m != "" {
+			if t, err := time.Parse("2006-01", m); err == nil {
+				year, month = t.Year(), int(t.Month())
+			}
+		}
+
+		plan, err := s.GetOrCreatePlan(r.Context(), year, month, session.UserId)
+		if err != nil {
+			log.Printf("planGet: failed to get/create plan: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+
+		summaries, err := s.GetPlanItemSummaries(r.Context(), plan.ID)
+		if err != nil {
+			log.Printf("planGet: failed to load plan items: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+
+		var incomeItems, expenseItems []types.PlanItemSummary
+		for _, item := range summaries {
+			if item.Type == "income" {
+				incomeItems = append(incomeItems, item)
+			} else {
+				expenseItems = append(expenseItems, item)
+			}
+		}
+
+		currentMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		props := struct {
+			viewProps
+			Plan         types.Plan
+			IncomeItems  []types.PlanItemSummary
+			ExpenseItems []types.PlanItemSummary
+			CurrentMonth string
+			PrevMonth    string
+			NextMonth    string
+		}{
+			viewProps:    viewProps{CspNonce: nonce, ActivePage: "plan"},
+			Plan:         plan,
+			IncomeItems:  incomeItems,
+			ExpenseItems: expenseItems,
+			CurrentMonth: currentMonth.Format("2006-01"),
+			PrevMonth:    currentMonth.AddDate(0, -1, 0).Format("2006-01"),
+			NextMonth:    currentMonth.AddDate(0, 1, 0).Format("2006-01"),
+		}
+
+		if err := t.Execute(w, props); err != nil {
+			log.Printf("Could not create plan page: %v", err)
 			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
 		}
 	}

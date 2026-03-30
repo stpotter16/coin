@@ -1793,6 +1793,10 @@
       --btn-color: var(--color-primary);
       --btn-fg: var(--color-primary-content);
     }
+    .btn-warning {
+      --btn-color: var(--color-warning);
+      --btn-fg: var(--color-warning-content);
+    }
   }
   @layer daisyui.l1.l2 {
     .btn:disabled:not(.btn-link, .btn-ghost) {
@@ -1870,6 +1874,14 @@
     .list .list-row > * {
       grid-row-start: 1;
     }
+    .input-sm {
+      --size: calc(var(--size-field, 0.25rem) * 8);
+      font-size: max(var(--font-size, 0.75rem), 0.75rem);
+    }
+    .input-sm[type="number"]::-webkit-inner-spin-button {
+      margin-block: -0.5rem;
+      margin-inline-end: -0.75rem;
+    }
     .btn-circle {
       width: var(--size);
       height: var(--size);
@@ -1896,6 +1908,11 @@
       color: var(--color-error-content);
       --alert-border-color: var(--color-error);
       --alert-color: var(--color-error);
+    }
+    .alert-warning {
+      color: var(--color-warning-content);
+      --alert-border-color: var(--color-warning);
+      --alert-color: var(--color-warning);
     }
     .btn-sm {
       --fontsize: 0.75rem;
@@ -1979,6 +1996,12 @@
   .min-h-screen {
     min-height: 100vh;
   }
+  .w-28 {
+    width: calc(var(--spacing) * 28);
+  }
+  .w-32 {
+    width: calc(var(--spacing) * 32);
+  }
   .w-full {
     width: 100%;
   }
@@ -1990,6 +2013,9 @@
   }
   .min-w-0 {
     min-width: calc(var(--spacing) * 0);
+  }
+  .flex-1 {
+    flex: 1;
   }
   .shrink-0 {
     flex-shrink: 0;
@@ -2221,6 +2247,36 @@
         --btn-border: #0000;
         --btn-noise: none;
         outline-color: currentColor;
+      }
+    }
+    .btn-outline:not(
+      .btn-active,
+      :hover,
+      :active:focus,
+      :focus-visible,
+      input:checked:not(.filter .btn),
+      :disabled,
+      [disabled],
+      .btn-disabled
+    ) {
+      --btn-shadow: "";
+      --btn-bg: #0000;
+      --btn-fg: var(--btn-color);
+      --btn-border: var(--btn-color);
+      --btn-noise: none;
+    }
+    @media (hover: none) {
+      .btn-outline:not(
+          .btn-active,
+          :active,
+          :focus-visible,
+          input:checked:not(.filter .btn)
+        ):hover {
+        --btn-shadow: "";
+        --btn-bg: #0000;
+        --btn-fg: var(--btn-color);
+        --btn-border: var(--btn-color);
+        --btn-noise: none;
       }
     }
   }

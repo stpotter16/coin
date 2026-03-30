@@ -70,5 +70,12 @@ func ParseTransactionDTO(dto types.TransactionDTO) (types.Transaction, error) {
 		t.PlaidCategoryDetailed = types.PlaidCategory{Value: &dto.PlaidCategoryDetailed.String}
 	}
 
+	if dto.PlanItemID.Valid {
+		t.PlanItem = &types.AssignedPlanItem{
+			ID:   int(dto.PlanItemID.Int64),
+			Name: dto.PlanItemName.String,
+		}
+	}
+
 	return t, nil
 }

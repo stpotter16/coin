@@ -19,7 +19,8 @@ func plaidLinkTokenPost(plaidClient plaidclient.Client, sessionManager sessions.
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, err := sessionManager.SessionFromContext(r.Context())
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			log.Printf("plaidLinkTokenPost: could not get session from ctx: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
 			return
 		}
 

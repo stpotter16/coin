@@ -46,6 +46,15 @@ func (s Store) UpsertPlaidTransaction(ctx context.Context, tx types.Transaction)
 	return err
 }
 
+func (s Store) UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error {
+	now := formatTime(time.Now().UTC())
+	_, err := s.db.Exec(ctx,
+		`UPDATE transactions SET plan_item_id = ?, last_modified_time = ? WHERE id = ?`,
+		planItemID, now, transactionID,
+	)
+	return err
+}
+
 func (s Store) DeletePlaidTransaction(ctx context.Context, plaidTransactionID string) error {
 	// Nullify the FK on any domain transaction that references this raw row,
 	// preserving the domain row (and its plan assignment) for historical plans.
@@ -70,9 +79,11 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		`SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
 		        t.amount, t.transaction_date, t.description, t.merchant_name,
 		        t.pending, t.payment_channel, t.plaid_category_primary,
-		        t.plaid_category_detailed, t.created_time, t.last_modified_time
+		        t.plaid_category_detailed, t.plan_item_id, pi.name,
+		        t.created_time, t.last_modified_time
 		FROM transactions t
 		LEFT JOIN plaid_transactions pt ON t.plaid_transaction_id = pt.id
+		LEFT JOIN plan_items pi ON t.plan_item_id = pi.id
 		WHERE t.id = ?`,
 		id,
 	)
@@ -91,6 +102,8 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		&tx.PaymentChannel,
 		&tx.PlaidCategoryPrimary,
 		&tx.PlaidCategoryDetailed,
+		&tx.PlanItemID,
+		&tx.PlanItemName,
 		&createdTime,
 		&lastModifiedTime,
 	)
@@ -120,9 +133,11 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 		SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
 		       t.amount, t.transaction_date, t.description, t.merchant_name,
 		       t.pending, t.payment_channel, t.plaid_category_primary,
-		       t.plaid_category_detailed, t.created_time, t.last_modified_time
+		       t.plaid_category_detailed, t.plan_item_id, pi.name,
+		       t.created_time, t.last_modified_time
 		FROM transactions t
 		LEFT JOIN plaid_transactions pt ON t.plaid_transaction_id = pt.id
+		LEFT JOIN plan_items pi ON t.plan_item_id = pi.id
 		WHERE t.transaction_date LIKE ?`
 	args := []any{prefix + "%"}
 
@@ -155,6 +170,8 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 			&tx.PaymentChannel,
 			&tx.PlaidCategoryPrimary,
 			&tx.PlaidCategoryDetailed,
+			&tx.PlanItemID,
+			&tx.PlanItemName,
 			&createdTime,
 			&lastModifiedTime,
 		); err != nil {
