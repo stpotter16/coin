@@ -31,7 +31,7 @@ Database rows are scanned into a DTO (e.g. `TransactionDTO`, `AccountDTO`) that 
 
 Nullable or display-bearing fields use named wrapper structs with `Valid()` and `String()`/`Int()` methods. Go templates call `String()` automatically, so `{{ .PlaidCategoryPrimary }}` renders correctly without explicit method calls. Zero value = absent.
 
-Examples: `MerchantName`, `PlaidCategory`, `NullableUser`, `Balance`, `AccountName`
+Examples: `MerchantName`, `PlaidCategory`, `Balance`, `AccountName`
 
 ### Parse Layer
 

@@ -55,6 +55,10 @@ func (s Syncer) syncItem(ctx context.Context, item types.PlaidItem) error {
 		return err
 	}
 
+	if err := s.store.RunTransform(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 

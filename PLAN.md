@@ -234,11 +234,12 @@ Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
 
 1. ✅ Add `github.com/plaid/plaid-go/v21` dependency
 2. ✅ Add `internal/crypto` — AES-256-GCM encrypt/decrypt
-3. ✅ Add store interface methods + sqlite implementations for `plaid_item`, `account`, `transactions`
+3. ✅ Add store interface methods + sqlite implementations for `plaid_item`, `account`, `plaid_transactions`
 4. ✅ Add `internal/plaidclient` — thin wrapper initialising the Plaid API client from env vars
-5. ✅ Add `internal/sync` — sync logic
+5. ✅ Add `internal/sync` — sync logic (writes to `plaid_transactions`)
 6. ✅ Add Link flow handlers (`POST /plaid/link/token`, `POST /plaid/link/exchange`)
 7. ✅ Wire hourly polling goroutine in `main.go`
+8. ✅ Add `RunTransform` — promotes `plaid_transactions` rows to domain `transactions`; runs after each item sync
 
 ## UI Considerations
 
@@ -255,16 +256,15 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four 
 
 ### Implementation Status
 
-| Page               | Status                                          |
-| ------------------ | ----------------------------------------------- |
-| Login              | ✅ Done                                         |
-| Dashboard          | ⚠️ Shell done — needs rewrite for plan model    |
-| Settings           | ✅ Done (categories link will be removed)       |
-| Accounts           | ✅ Done                                         |
-| Transactions       | ⚠️ Shell done — needs plan assignment UI        |
-| Transaction detail | ⚠️ Shell done — category override → plan assign |
-| Categories         | ⚠️ Built but superseded by plan model           |
-| Plan management    | ⬜ Not yet built                                |
+| Page               | Status                                       |
+| ------------------ | -------------------------------------------- |
+| Login              | ✅ Done                                      |
+| Dashboard          | ⚠️ Shell done — needs rewrite for plan model |
+| Settings           | ✅ Done                                      |
+| Accounts           | ✅ Done                                      |
+| Transactions       | ⚠️ Shell done — needs plan assignment UI     |
+| Transaction detail | ⚠️ Shell done — needs plan item assignment   |
+| Plan management    | ⬜ Not yet built                             |
 
 ### Dashboard
 
@@ -299,7 +299,6 @@ A month stepper allows navigating to previous (locked) months. Locked months are
 - "Connect an account" button triggers the Plaid Link flow
 - Plan setup flow for first-time users
 - Admin-only user management: ⬜ not yet built
-- Categories section: ⚠️ to be removed (superseded by plan model)
 
 ### Accounts
 
@@ -344,7 +343,7 @@ Loose items to revisit before considering the project production-ready.
 
 ✅ All POST handlers delegate JSON decoding and field validation to `internal/parse` functions. Handler bodies are thin.
 
-✅ `TransactionDate` is now `time.Time` on the `Transaction` type. Parsing from the Plaid `YYYY-MM-DD` string happens once at the boundary (`ParsePlaidTransaction`, `ParseTransactionDTO`). The DTO still holds a `string` for DB scanning; `UpsertTransaction` formats it back to `YYYY-MM-DD` for storage. Display methods (`FormattedDate`, `GroupDate`) call `.Format()` directly with no error path.
+✅ `TransactionDate` is now `time.Time` on the `Transaction` type. Parsing from the Plaid `YYYY-MM-DD` string happens once at the boundary (`ParsePlaidTransaction`, `ParseTransactionDTO`). The DTO still holds a `string` for DB scanning; `UpsertPlaidTransaction` formats it back to `YYYY-MM-DD` for storage. Display methods (`FormattedDate`, `GroupDate`) call `.Format()` directly with no error path.
 
 ### 3. Unit Test Coverage
 
@@ -362,25 +361,10 @@ Currently there are no unit tests. Priority areas:
 
 - Plaid Link flow — JS-driven by necessity (Plaid widget).
 - Account filter dropdown — JS updates the URL on change.
-- Category override (`POST /transactions/:id`) — fetch POST, UI updated inline.
-- Add note (`POST /transaction-notes`) — fetch POST, new note appended inline.
 
-### 5. Richer User References on Types
-
-Several types store a user relationship as a bare `int` ID rather than a `User` struct. This is inconsistent with `Transaction.LastModifiedBy`, which is already a `NullableUser`. The affected types and their fields are:
-
-| Type              | Field(s)                         | Nullable? |
-| ----------------- | -------------------------------- | --------- |
-| `Category`        | `CreatedBy`, `LastModifiedBy`    | No        |
-| `TransactionNote` | `UserID` (rename to `CreatedBy`) | No        |
-
-Note: both `Category` and `TransactionNote` are being removed from scope entirely, so these changes are moot for those types. This section remains relevant if either is re-added later.
-
-### 6. Other
+### 5. Other
 
 - **Admin user management** in Settings — ⬜ not yet built.
-- **Category management** — ⚠️ Built (`/categories`) but removed from scope. The `category` table, categories page, and all related store/handler/parse code should be deleted.
-- **Transaction notes** — ⚠️ Built but removed from scope. The `transaction_notes` table, notes section on transaction detail, `POST /transaction-notes` route, and all related store/handler/parse code should be deleted.
 - **Dashboard data** — ⚠️ Shell exists but needs a full rewrite to show remaining discretionary and the income/fixed/flexible breakdown.
 - **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
 - **Pagination** — ⬜ `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.

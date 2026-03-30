@@ -32,4 +32,7 @@ type Store interface {
 	// Transactions (domain)
 	GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
+
+	// Transform
+	RunTransform(ctx context.Context) error
 }
