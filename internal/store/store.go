@@ -35,6 +35,7 @@ type Store interface {
 	GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
 	UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error
+	GetFlexibleSpending(ctx context.Context, year, month int) (float64, error)
 
 	// Transform
 	RunTransform(ctx context.Context) error

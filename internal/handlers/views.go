@@ -48,7 +48,7 @@ func loginGet() http.HandlerFunc {
 	}
 }
 
-func indexGet(store store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+func indexGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -65,19 +65,56 @@ func indexGet(store store.Store, sessionManager sessions.SessionManger) http.Han
 			return
 		}
 
-		items, err := store.GetPlaidItems(r.Context())
+		items, err := s.GetPlaidItems(r.Context())
 		if err != nil {
 			log.Printf("indexGet: failed to load plaid items: %v", err)
 			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
 			return
 		}
 
+		now := time.Now()
+		year, month := now.Year(), int(now.Month())
+
+		var summary types.DashboardSummary
+		if plan, found, err := s.GetPlanByMonth(r.Context(), year, month); err != nil {
+			log.Printf("indexGet: failed to load plan: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		} else if found {
+			summary.HasPlan = true
+			summaries, err := s.GetPlanItemSummaries(r.Context(), plan.ID)
+			if err != nil {
+				log.Printf("indexGet: failed to load plan item summaries: %v", err)
+				http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+				return
+			}
+			for _, item := range summaries {
+				if item.Type == "income" {
+					summary.ExpectedIncome += item.ExpectedAmount
+					summary.ActualIncome += item.ActualDisplay()
+				} else {
+					summary.ExpectedFixed += item.ExpectedAmount
+					summary.ActualFixed += item.ActualDisplay()
+				}
+			}
+		}
+
+		flexible, err := s.GetFlexibleSpending(r.Context(), year, month)
+		if err != nil {
+			log.Printf("indexGet: failed to load flexible spending: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+		summary.FlexibleSpending = flexible
+
 		props := struct {
 			viewProps
 			HasAccounts bool
+			Summary     types.DashboardSummary
 		}{
 			viewProps:   viewProps{CspNonce: nonce, ActivePage: "dashboard"},
 			HasAccounts: len(items) > 0,
+			Summary:     summary,
 		}
 
 		if err := t.Execute(w, props); err != nil {

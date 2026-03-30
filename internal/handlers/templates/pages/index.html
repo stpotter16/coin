@@ -29,65 +29,89 @@
     </div>
   {{ else }}
     <div class="flex flex-col gap-4">
-      {{/* Net cash flow hero card */}}
+      {{/* Remaining discretionary hero */}}
       <div class="card bg-base-200 shadow">
-        <div class="card-body items-center text-center">
-          <p class="text-sm text-base-content/60 uppercase tracking-wide">
-            Net Cash Flow
-          </p>
-          <p class="text-sm text-base-content/60">This month</p>
-          <p class="text-4xl font-bold mt-1">—</p>
-        </div>
-      </div>
-
-      {{/* Total in / Total out */}}
-      <div class="grid grid-cols-2 gap-4">
-        <div class="card bg-base-200 shadow">
-          <div class="card-body p-4 items-center text-center">
-            <p class="text-xs text-base-content/60 uppercase tracking-wide">
-              Money In
-            </p>
-            <p class="text-xl font-semibold text-success mt-1">—</p>
-          </div>
-        </div>
-        <div class="card bg-base-200 shadow">
-          <div class="card-body p-4 items-center text-center">
-            <p class="text-xs text-base-content/60 uppercase tracking-wide">
-              Money Out
-            </p>
-            <p class="text-xl font-semibold text-error mt-1">—</p>
-          </div>
-        </div>
-      </div>
-
-      {{/* Top categories */}}
-      <div class="card bg-base-200 shadow">
-        <div class="card-body p-4">
-          <h2
-            class="card-title text-sm uppercase tracking-wide text-base-content/60"
+        <div class="card-body items-center text-center gap-1">
+          <p
+            class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
           >
-            Top Categories
-          </h2>
-          <p class="text-base-content/40 text-sm mt-2">
-            No data yet — sync your accounts to see spending by category.
+            Remaining Discretionary
           </p>
+          {{ if .Summary.HasPlan }}
+            <p class="text-4xl font-bold mt-1 {{ .Summary.RemainingClass }}">
+              {{ .Summary.FormattedRemaining }}
+            </p>
+          {{ else }}
+            <p class="text-4xl font-bold mt-1 text-base-content/30">—</p>
+            <p class="text-sm text-base-content/50 mt-2">
+              <a href="/plan" class="link">Set up this month's plan</a>
+              to track remaining discretionary.
+            </p>
+          {{ end }}
         </div>
       </div>
 
-      {{/* Recent transactions */}}
-      <div class="card bg-base-200 shadow">
-        <div class="card-body p-4">
-          <div class="flex justify-between items-center">
+      {{ if .Summary.HasPlan }}
+        {{/* Income row */}}
+        <div class="card bg-base-200 shadow">
+          <div class="card-body p-4 flex flex-col gap-3">
             <h2
-              class="card-title text-sm uppercase tracking-wide text-base-content/60"
+              class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
             >
-              Recent
+              Income
             </h2>
-            <a href="/transactions" class="text-xs text-primary">See all</a>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/60">Expected</span>
+              <span>{{ .Summary.FormattedExpectedIncome }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/60">Received</span>
+              <span class="text-success"
+                >{{ .Summary.FormattedActualIncome }}</span
+              >
+            </div>
           </div>
-          <p class="text-base-content/40 text-sm mt-2">No transactions yet.</p>
         </div>
-      </div>
+
+        {{/* Fixed expenses row */}}
+        <div class="card bg-base-200 shadow">
+          <div class="card-body p-4 flex flex-col gap-3">
+            <h2
+              class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+            >
+              Fixed Expenses
+            </h2>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/60">Expected</span>
+              <span>{{ .Summary.FormattedExpectedFixed }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/60">Paid</span>
+              <span class="text-error"
+                >{{ .Summary.FormattedActualFixed }}</span
+              >
+            </div>
+          </div>
+        </div>
+
+        {{/* Flexible spending */}}
+        <div class="card bg-base-200 shadow">
+          <div class="card-body p-4 flex flex-col gap-2">
+            <h2
+              class="text-sm font-semibold uppercase tracking-wide text-base-content/60"
+            >
+              Flexible Spending
+            </h2>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/60">Spent so far</span>
+              <span class="text-error">{{ .Summary.FormattedFlexible }}</span>
+            </div>
+            <p class="text-xs text-base-content/40">
+              Unassigned transactions this month
+            </p>
+          </div>
+        </div>
+      {{ end }}
     </div>
   {{ end }}
 {{ end }}

@@ -245,26 +245,27 @@ Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
 
 ### Layout
 
-Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with four tabs:
+Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with five tabs:
 
 | Tab          | Content                                                   |
 | ------------ | --------------------------------------------------------- |
 | Dashboard    | Remaining discretionary + income/fixed/flexible breakdown |
+| Plan         | Monthly plan management — income and fixed expense items  |
 | Transactions | Full transaction list, filterable by account/date         |
 | Accounts     | Connected institutions and account balances               |
-| Settings     | Plaid connection management; plan setup; user management  |
+| Settings     | Plaid connection management; user management              |
 
 ### Implementation Status
 
-| Page               | Status                                       |
-| ------------------ | -------------------------------------------- |
-| Login              | ✅ Done                                      |
-| Dashboard          | ⚠️ Shell done — needs rewrite for plan model |
-| Settings           | ✅ Done                                      |
-| Accounts           | ✅ Done                                      |
-| Transactions       | ⚠️ Shell done — needs plan assignment UI     |
-| Transaction detail | ⚠️ Shell done — needs plan item assignment   |
-| Plan management    | ⬜ Not yet built                             |
+| Page               | Status                                                        |
+| ------------------ | ------------------------------------------------------------- |
+| Login              | ✅ Done                                                       |
+| Dashboard          | ✅ Done                                                       |
+| Plan management    | ✅ Done                                                       |
+| Settings           | ✅ Done                                                       |
+| Accounts           | ✅ Done                                                       |
+| Transaction detail | ✅ Done                                                       |
+| Transactions       | ⚠️ Shell done — assignment status badge not yet shown on list |
 
 ### Dashboard
 
@@ -365,6 +366,6 @@ Currently there are no unit tests. Priority areas:
 ### 5. Other
 
 - **Admin user management** in Settings — ⬜ not yet built.
-- **Dashboard data** — ⚠️ Shell exists but needs a full rewrite to show remaining discretionary and the income/fixed/flexible breakdown.
+- **Transaction list assignment badge** — ⚠️ `transactions.html` doesn't yet show whether a transaction is assigned to a plan item or unassigned (flexible). The data is available on `Transaction.PlanItem`.
 - **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
 - **Pagination** — ⬜ `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.

@@ -46,6 +46,20 @@ func (s Store) UpsertPlaidTransaction(ctx context.Context, tx types.Transaction)
 	return err
 }
 
+func (s Store) GetFlexibleSpending(ctx context.Context, year, month int) (float64, error) {
+	prefix := fmt.Sprintf("%04d-%02d-", year, month)
+	var total float64
+	err := s.db.QueryRow(ctx,
+		`SELECT COALESCE(SUM(amount), 0)
+		 FROM transactions
+		 WHERE plan_item_id IS NULL
+		   AND amount > 0
+		   AND transaction_date LIKE ?`,
+		prefix+"%",
+	).Scan(&total)
+	return total, err
+}
+
 func (s Store) UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error {
 	now := formatTime(time.Now().UTC())
 	_, err := s.db.Exec(ctx,
