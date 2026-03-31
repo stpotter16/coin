@@ -14,6 +14,19 @@ import (
 
 func (s Store) UpsertPlaidTransaction(ctx context.Context, tx types.Transaction) error {
 	now := formatTime(time.Now().UTC())
+	var merchantName, categoryPrimary, categoryDetailed *string
+	if tx.MerchantName.Valid() {
+		v := tx.MerchantName.String()
+		merchantName = &v
+	}
+	if tx.PlaidCategoryPrimary.Valid() {
+		v := tx.PlaidCategoryPrimary.Value
+		categoryPrimary = v
+	}
+	if tx.PlaidCategoryDetailed.Valid() {
+		v := tx.PlaidCategoryDetailed.Value
+		categoryDetailed = v
+	}
 	_, err := s.db.Exec(ctx,
 		`INSERT INTO plaid_transactions
 			(plaid_transaction_id, account_id, amount, transaction_date, description,
@@ -35,11 +48,11 @@ func (s Store) UpsertPlaidTransaction(ctx context.Context, tx types.Transaction)
 		tx.Amount,
 		tx.TransactionDate.Format("2006-01-02"),
 		tx.Description,
-		tx.MerchantName,
+		merchantName,
 		tx.Pending,
 		tx.PaymentChannel,
-		tx.PlaidCategoryPrimary,
-		tx.PlaidCategoryDetailed,
+		categoryPrimary,
+		categoryDetailed,
 		now,
 		now,
 	)
