@@ -32,7 +32,7 @@ type Store interface {
 	DeletePlaidTransaction(ctx context.Context, plaidTransactionID string) error
 
 	// Transactions (domain)
-	GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error)
+	GetTransactions(ctx context.Context, filter types.TransactionFilter) (types.TransactionPage, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
 	UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error
 	GetFlexibleSpending(ctx context.Context, year, month int) (float64, error)

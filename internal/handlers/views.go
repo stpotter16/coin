@@ -158,6 +158,14 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			}
 		}
 
+		// Parse page param (1-indexed).
+		page := 1
+		if p := r.URL.Query().Get("page"); p != "" {
+			if n, err := strconv.Atoi(p); err == nil && n > 1 {
+				page = n
+			}
+		}
+
 		// Fetch accounts for the filter dropdown.
 		accounts, err := store.GetAllAccounts(r.Context())
 		if err != nil {
@@ -166,11 +174,12 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			return
 		}
 
-		// Fetch transactions for the selected month/account.
-		txs, err := store.GetTransactions(r.Context(), types.TransactionFilter{
+		// Fetch transactions for the selected month/account/page.
+		txPage, err := store.GetTransactions(r.Context(), types.TransactionFilter{
 			Year:      year,
 			Month:     month,
 			AccountID: accountID,
+			Page:      page,
 		})
 		if err != nil {
 			log.Printf("transactionsGet: failed to load transactions: %v", err)
@@ -181,7 +190,7 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 		// Build display groups keyed by date.
 		var groups []types.TransactionGroup
 		groupIndex := map[string]int{}
-		for _, tx := range txs {
+		for _, tx := range txPage.Transactions {
 			dateLabel := tx.GroupDate()
 			dateKey := tx.TransactionDate.Format("2006-01-02")
 			if i, ok := groupIndex[dateKey]; ok {
@@ -211,6 +220,10 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			NextMonth     string
 			MonthLabel    string
 			SelectedAccID int
+			Page          int
+			PrevPage      int
+			NextPage      int
+			HasMore       bool
 		}{
 			viewProps:    viewProps{CspNonce: nonce, ActivePage: "transactions"},
 			Accounts:     accounts,
@@ -226,6 +239,10 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 				}
 				return 0
 			}(),
+			Page:     page,
+			PrevPage: page - 1,
+			NextPage: page + 1,
+			HasMore:  txPage.HasMore,
 		}
 
 		if err := t.Execute(w, props); err != nil {

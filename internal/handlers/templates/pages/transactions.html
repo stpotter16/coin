@@ -151,6 +151,14 @@
           </div>
         {{ end }}
       </div>
+
+      {{/* Pagination */}}
+      <div class="flex items-center justify-between pt-2 pb-4">
+        <!-- prettier-ignore -->
+        {{ if gt .Page 1 }}<a href="/transactions?month={{ .CurrentMonth }}{{ if .SelectedAccID }}&account_id={{ .SelectedAccID }}{{ end }}&page={{ .PrevPage }}" class="btn btn-ghost btn-sm">&larr; Previous</a>{{ else }}<span></span>{{ end }}
+        <!-- prettier-ignore -->
+        {{ if .HasMore }}<a href="/transactions?month={{ .CurrentMonth }}{{ if .SelectedAccID }}&account_id={{ .SelectedAccID }}{{ end }}&page={{ .NextPage }}" class="btn btn-ghost btn-sm">Next &rarr;</a>{{ else }}<span></span>{{ end }}
+      </div>
     {{ end }}
   {{ end }}
 {{ end }}

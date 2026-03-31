@@ -299,7 +299,6 @@ A month stepper allows navigating to previous (locked) months. Locked months are
 - Lists connected institutions with a "Connected" badge
 - "Connect an account" button triggers the Plaid Link flow
 - Plan setup flow for first-time users
-- Admin-only user management: ⬜ not yet built
 
 ### Accounts
 
@@ -365,7 +364,6 @@ Currently there are no unit tests. Priority areas:
 
 ### 5. Other
 
-- **Admin user management** in Settings — ⬜ not yet built.
 - **Transaction list assignment badge** — ✅ Each row shows the plan item name (primary badge) or "Unassigned" (ghost badge).
 - **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
-- **Pagination** — ⬜ `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.
+- **Pagination** — ✅ `GetTransactions` uses offset pagination with a page size of 100; prev/next page links rendered at the bottom of the transaction list.

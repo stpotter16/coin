@@ -140,8 +140,14 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 	return parse.ParseTransactionDTO(tx)
 }
 
-func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilter) ([]types.Transaction, error) {
+func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilter) (types.TransactionPage, error) {
 	prefix := fmt.Sprintf("%04d-%02d-", filter.Year, filter.Month)
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * types.TransactionPageSize
 
 	query := `
 		SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
@@ -160,11 +166,12 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 		args = append(args, *filter.AccountID)
 	}
 
-	query += " ORDER BY t.transaction_date DESC, t.id DESC"
+	query += " ORDER BY t.transaction_date DESC, t.id DESC LIMIT ? OFFSET ?"
+	args = append(args, types.TransactionPageSize+1, offset)
 
 	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return types.TransactionPage{}, err
 	}
 	defer rows.Close()
 
@@ -189,24 +196,32 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 			&createdTime,
 			&lastModifiedTime,
 		); err != nil {
-			return nil, err
+			return types.TransactionPage{}, err
 		}
 
 		tx.CreatedTime, err = parseTime(createdTime)
 		if err != nil {
-			return nil, err
+			return types.TransactionPage{}, err
 		}
 		tx.LastModifiedTime, err = parseTime(lastModifiedTime)
 		if err != nil {
-			return nil, err
+			return types.TransactionPage{}, err
 		}
 
 		transaction, err := parse.ParseTransactionDTO(tx)
 		if err != nil {
-			return nil, err
+			return types.TransactionPage{}, err
 		}
 
 		txs = append(txs, transaction)
 	}
-	return txs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return types.TransactionPage{}, err
+	}
+
+	hasMore := len(txs) > types.TransactionPageSize
+	if hasMore {
+		txs = txs[:types.TransactionPageSize]
+	}
+	return types.TransactionPage{Transactions: txs, HasMore: hasMore}, nil
 }

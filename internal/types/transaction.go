@@ -58,6 +58,11 @@ type TransactionGroup struct {
 	Transactions []Transaction
 }
 
+type TransactionPage struct {
+	Transactions []Transaction
+	HasMore      bool
+}
+
 func (t Transaction) DisplayName() string {
 	if t.MerchantName.Valid() {
 		return t.MerchantName.String()
