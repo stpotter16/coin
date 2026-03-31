@@ -53,11 +53,21 @@ func (s Store) GetFlexibleSpending(ctx context.Context, year, month int) (float6
 		`SELECT COALESCE(SUM(amount), 0)
 		 FROM transactions
 		 WHERE plan_item_id IS NULL
+		   AND excluded = 0
 		   AND amount > 0
 		   AND transaction_date LIKE ?`,
 		prefix+"%",
 	).Scan(&total)
 	return total, err
+}
+
+func (s Store) UpdateTransactionExcluded(ctx context.Context, transactionID int, excluded bool) error {
+	now := formatTime(time.Now().UTC())
+	_, err := s.db.Exec(ctx,
+		`UPDATE transactions SET excluded = ?, last_modified_time = ? WHERE id = ?`,
+		excluded, now, transactionID,
+	)
+	return err
 }
 
 func (s Store) UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error {
@@ -93,7 +103,7 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		`SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
 		        COALESCE(a.name, ''),
 		        t.amount, t.transaction_date, t.description, t.merchant_name,
-		        t.pending, t.payment_channel, t.plaid_category_primary,
+		        t.pending, t.excluded, t.payment_channel, t.plaid_category_primary,
 		        t.plaid_category_detailed, t.plan_item_id, pi.name,
 		        t.created_time, t.last_modified_time
 		FROM transactions t
@@ -116,6 +126,7 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		&tx.Description,
 		&tx.MerchantName,
 		&tx.Pending,
+		&tx.Excluded,
 		&tx.PaymentChannel,
 		&tx.PlaidCategoryPrimary,
 		&tx.PlaidCategoryDetailed,
@@ -156,7 +167,7 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 		SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
 		       COALESCE(a.name, ''),
 		       t.amount, t.transaction_date, t.description, t.merchant_name,
-		       t.pending, t.payment_channel, t.plaid_category_primary,
+		       t.pending, t.excluded, t.payment_channel, t.plaid_category_primary,
 		       t.plaid_category_detailed, t.plan_item_id, pi.name,
 		       t.created_time, t.last_modified_time
 		FROM transactions t
@@ -194,6 +205,7 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 			&tx.Description,
 			&tx.MerchantName,
 			&tx.Pending,
+			&tx.Excluded,
 			&tx.PaymentChannel,
 			&tx.PlaidCategoryPrimary,
 			&tx.PlaidCategoryDetailed,

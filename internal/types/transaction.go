@@ -18,6 +18,7 @@ type TransactionDTO struct {
 	Description           string
 	MerchantName          sql.NullString
 	Pending               bool
+	Excluded              bool
 	PaymentChannel        string
 	PlaidCategoryPrimary  sql.NullString
 	PlaidCategoryDetailed sql.NullString
@@ -43,6 +44,7 @@ type Transaction struct {
 	Description           string
 	MerchantName          MerchantName
 	Pending               bool
+	Excluded              bool
 	PaymentChannel        string
 	PlaidCategoryPrimary  PlaidCategory
 	PlaidCategoryDetailed PlaidCategory

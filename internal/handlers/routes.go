@@ -46,6 +46,7 @@ func addRoutes(
 	mux.Handle("PUT /plan-items/{id}", apiAuthRequired(planItemUpdatePut(store)))
 	mux.Handle("DELETE /plan-items/{id}", apiAuthRequired(planItemDeletePost(store)))
 	mux.Handle("POST /transactions/{id}/plan-item", apiAuthRequired(transactionPlanItemPost(store)))
+	mux.Handle("POST /transactions/{id}/excluded", apiAuthRequired(transactionExcludedPost(store)))
 	mux.Handle("POST /plaid/link/token", apiAuthRequired(plaidLinkTokenPost(plaidClient, sessionManager)))
 	mux.Handle("POST /plaid/link/exchange", apiAuthRequired(plaidExchangePost(plaidClient, store, syncer, encryptionKey)))
 }

@@ -137,6 +137,11 @@
                             {{- .AccountName -}}
                           </span>
                         {{ end }}
+                        {{ if .Excluded }}
+                          <span class="badge badge-ghost text-xs">
+                            Excluded
+                          </span>
+                        {{ end }}
                         {{ if .Pending }}
                           <span class="text-xs text-base-content/40">
                             Pending

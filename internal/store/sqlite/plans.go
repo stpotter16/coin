@@ -141,7 +141,7 @@ func (s Store) GetPlanItemSummaries(ctx context.Context, planID int) ([]types.Pl
 		        COALESCE(SUM(t.amount), 0),
 		        pi.created_time, pi.last_modified_time
 		 FROM plan_items pi
-		 LEFT JOIN transactions t ON t.plan_item_id = pi.id
+		 LEFT JOIN transactions t ON t.plan_item_id = pi.id AND t.excluded = 0
 		 WHERE pi.plan_id = ?
 		 GROUP BY pi.id
 		 ORDER BY pi.type, pi.id`,

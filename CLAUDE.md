@@ -33,6 +33,16 @@ Nullable or display-bearing fields use named wrapper structs with `Valid()` and 
 
 Examples: `MerchantName`, `PlaidCategory`, `Balance`, `AccountName`
 
+### Table Names
+
+SQLite table names in this project are **singular**: `account`, `plaid_item`, `user`, `session`. Only junction/collection tables that are inherently plural use plural names: `plaid_transactions`, `transactions`, `plans`, `plan_items`. Always check `001_initial.sql` before writing a JOIN.
+
+### Plaid Write Path vs Domain Types
+
+`types.PlaidTransaction` is a flat struct with plain SQL-compatible fields (`string`, `*string`, `float64`, `bool`) used exclusively on the Plaid sync write path. It is constructed by `parse.ParsePlaidTransaction` from the Plaid SDK response and passed directly to `store.UpsertPlaidTransaction` — no wrapper types, no `time.Time`, no conversion needed.
+
+`types.Transaction` (the domain type, with wrapper structs and `time.Time`) is never used on the write path. The store only produces `Transaction` values when reading from the `transactions` table.
+
 ### Parse Layer
 
 All HTTP request parsing and validation lives in `internal/parse`, not in handler bodies. Handler bodies are thin — they call a parse function, call the store, and write a response.

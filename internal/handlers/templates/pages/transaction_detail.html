@@ -1,6 +1,29 @@
 {{ define "title" }}Transaction{{ end }}
 {{ define "script-tags" }}
-  {{ if .PlanItems }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    document
+      .getElementById("exclude-btn")
+      ?.addEventListener("click", async () => {
+        const btn = document.getElementById("exclude-btn");
+        const excluded = btn.dataset.excluded === "true";
+        btn.disabled = true;
+        try {
+          const resp = await fetch(
+            "/transactions/{{ .Transaction.ID }}/excluded",
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ excluded: !excluded }),
+            },
+          );
+          if (!resp.ok) throw new Error();
+          window.location.reload();
+        } catch {
+          btn.disabled = false;
+        }
+      });
+  </script> {{ if .PlanItems }}
     <script type="module" nonce="{{ .CspNonce }}">
       document
         .getElementById("plan-item-save-btn")
@@ -106,6 +129,27 @@
           </div>
         {{ end }}
       </div>
+    </div>
+
+    {{/* Exclude toggle */}}
+    <div>
+      {{ if .Transaction.Excluded }}
+        <button
+          id="exclude-btn"
+          data-excluded="true"
+          class="btn btn-outline btn-sm w-full"
+        >
+          Include in totals
+        </button>
+      {{ else }}
+        <button
+          id="exclude-btn"
+          data-excluded="false"
+          class="btn btn-outline btn-warning btn-sm w-full"
+        >
+          Exclude from totals
+        </button>
+      {{ end }}
     </div>
 
     {{/* Plan item assignment */}}

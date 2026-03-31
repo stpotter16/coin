@@ -9,6 +9,30 @@ import (
 	"github.com/stpotter16/coin/internal/store"
 )
 
+func transactionExcludedPost(s store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		req, err := parse.ParseTransactionExcluded(r)
+		if err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		if err := s.UpdateTransactionExcluded(r.Context(), id, req.Excluded); err != nil {
+			log.Printf("transactionExcludedPost: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func transactionPlanItemPost(s store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(r.PathValue("id"))

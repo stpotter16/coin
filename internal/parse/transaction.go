@@ -1,12 +1,24 @@
 package parse
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/plaid/plaid-go/v21/plaid"
 	"github.com/stpotter16/coin/internal/types"
 )
+
+func ParseTransactionExcluded(r *http.Request) (types.TransactionExcludedRequest, error) {
+	var body struct {
+		Excluded bool `json:"excluded"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return types.TransactionExcludedRequest{}, err
+	}
+	return types.TransactionExcludedRequest{Excluded: body.Excluded}, nil
+}
 
 func ParsePlaidTransaction(pt plaid.Transaction, accountID int) (types.PlaidTransaction, error) {
 	t := types.PlaidTransaction{
@@ -49,6 +61,7 @@ func ParseTransactionDTO(dto types.TransactionDTO) (types.Transaction, error) {
 		TransactionDate:    date,
 		Description:        dto.Description,
 		Pending:            dto.Pending,
+		Excluded:           dto.Excluded,
 		PaymentChannel:     dto.PaymentChannel,
 		CreatedTime:        dto.CreatedTime,
 		LastModifiedTime:   dto.LastModifiedTime,

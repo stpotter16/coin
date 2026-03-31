@@ -343,7 +343,9 @@ Loose items to revisit before considering the project production-ready.
 
 ✅ All POST handlers delegate JSON decoding and field validation to `internal/parse` functions. Handler bodies are thin.
 
-✅ `TransactionDate` is now `time.Time` on the `Transaction` type. Parsing from the Plaid `YYYY-MM-DD` string happens once at the boundary (`ParsePlaidTransaction`, `ParseTransactionDTO`). The DTO still holds a `string` for DB scanning; `UpsertPlaidTransaction` formats it back to `YYYY-MM-DD` for storage. Display methods (`FormattedDate`, `GroupDate`) call `.Format()` directly with no error path.
+✅ `TransactionDate` is now `time.Time` on the `Transaction` type. Parsing from the Plaid `YYYY-MM-DD` string happens once at the boundary (`ParseTransactionDTO`). The DTO holds a `string` for DB scanning. Display methods (`FormattedDate`, `GroupDate`) call `.Format()` directly with no error path.
+
+✅ `ParsePlaidTransaction` returns `types.PlaidTransaction` (a flat struct with plain SQL-compatible fields), not `types.Transaction`. The date string is passed through as-is from Plaid — no parsing needed on the write path.
 
 ### 3. Unit Test Coverage
 
@@ -365,5 +367,8 @@ Currently there are no unit tests. Priority areas:
 ### 5. Other
 
 - **Transaction list assignment badge** — ✅ Each row shows the plan item name (primary badge) or "Unassigned" (ghost badge).
+- **Account name on transactions** — ✅ Transaction list rows and detail page both show the associated account name.
+- **Manual sync** — ✅ Dashboard has a "Sync now" button that calls `POST /sync`, which runs `SyncAll` and surfaces errors to the user via an alert. `SyncAll` now returns an error.
+- **Excluded transactions** — ✅ Transactions can be excluded from all totals (flexible spending, plan item actuals) via a toggle on the transaction detail page. Excluded transactions show an "Excluded" badge in the list. Implemented as `excluded INTEGER NOT NULL DEFAULT 0` on the `transactions` table (migration `002`).
 - **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
 - **Pagination** — ✅ `GetTransactions` uses offset pagination with a page size of 100; prev/next page links rendered at the bottom of the transaction list.
