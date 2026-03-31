@@ -123,9 +123,13 @@
                         >{{ .DisplayName }}</span
                       >
                       <div class="mt-0.5 flex items-center gap-2">
-                        {{ if .PlaidCategoryPrimary.Valid }}
+                        {{ if .IsAssigned }}
+                          <span class="badge badge-soft badge-primary text-xs">
+                            {{- .PlanItem.Name -}}
+                          </span>
+                        {{ else }}
                           <span class="badge badge-ghost text-xs">
-                            {{- .PlaidCategoryPrimary -}}
+                            Unassigned
                           </span>
                         {{ end }}
                         {{ if .Pending }}

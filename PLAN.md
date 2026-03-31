@@ -257,15 +257,15 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with five 
 
 ### Implementation Status
 
-| Page               | Status                                                        |
-| ------------------ | ------------------------------------------------------------- |
-| Login              | ✅ Done                                                       |
-| Dashboard          | ✅ Done                                                       |
-| Plan management    | ✅ Done                                                       |
-| Settings           | ✅ Done                                                       |
-| Accounts           | ✅ Done                                                       |
-| Transaction detail | ✅ Done                                                       |
-| Transactions       | ⚠️ Shell done — assignment status badge not yet shown on list |
+| Page               | Status  |
+| ------------------ | ------- |
+| Login              | ✅ Done |
+| Dashboard          | ✅ Done |
+| Plan management    | ✅ Done |
+| Settings           | ✅ Done |
+| Accounts           | ✅ Done |
+| Transaction detail | ✅ Done |
+| Transactions       | ✅ Done |
 
 ### Dashboard
 
@@ -366,6 +366,6 @@ Currently there are no unit tests. Priority areas:
 ### 5. Other
 
 - **Admin user management** in Settings — ⬜ not yet built.
-- **Transaction list assignment badge** — ⚠️ `transactions.html` doesn't yet show whether a transaction is assigned to a plan item or unassigned (flexible). The data is available on `Transaction.PlanItem`.
+- **Transaction list assignment badge** — ✅ Each row shows the plan item name (primary badge) or "Unassigned" (ghost badge).
 - **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
 - **Pagination** — ⬜ `GetTransactions` has no limit; add a cap or cursor-based pagination before data grows large.
