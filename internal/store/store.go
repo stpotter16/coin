@@ -28,7 +28,7 @@ type Store interface {
 	GetAllAccounts(ctx context.Context) ([]types.Account, error)
 
 	// Plaid transactions (raw cache)
-	UpsertPlaidTransaction(ctx context.Context, tx types.Transaction) error
+	UpsertPlaidTransaction(ctx context.Context, tx types.PlaidTransaction) error
 	DeletePlaidTransaction(ctx context.Context, plaidTransactionID string) error
 
 	// Transactions (domain)

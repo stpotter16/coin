@@ -8,32 +8,27 @@ import (
 	"github.com/stpotter16/coin/internal/types"
 )
 
-func ParsePlaidTransaction(pt plaid.Transaction, accountID int) (types.Transaction, error) {
-	date, err := time.Parse("2006-01-02", pt.GetDate())
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("invalid transaction date %q: %w", pt.GetDate(), err)
-	}
-
-	t := types.Transaction{
+func ParsePlaidTransaction(pt plaid.Transaction, accountID int) (types.PlaidTransaction, error) {
+	t := types.PlaidTransaction{
 		PlaidTransactionID: pt.GetTransactionId(),
 		AccountID:          accountID,
 		Amount:             pt.GetAmount(),
-		TransactionDate:    date,
+		TransactionDate:    pt.GetDate(),
 		Description:        pt.GetName(),
 		Pending:            pt.GetPending(),
 		PaymentChannel:     pt.GetPaymentChannel(),
 	}
 
 	if name, ok := pt.GetMerchantNameOk(); ok && name != nil {
-		t.MerchantName = types.MerchantName{Value: name}
+		t.MerchantName = name
 	}
 
 	if pt.HasPersonalFinanceCategory() {
 		pfc := pt.GetPersonalFinanceCategory()
 		primary := pfc.GetPrimary()
 		detailed := pfc.GetDetailed()
-		t.PlaidCategoryPrimary = types.PlaidCategory{Value: &primary}
-		t.PlaidCategoryDetailed = types.PlaidCategory{Value: &detailed}
+		t.PlaidCategoryPrimary = &primary
+		t.PlaidCategoryDetailed = &detailed
 	}
 
 	return t, nil
