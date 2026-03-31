@@ -12,136 +12,138 @@
       window.location.href = "/plan?month={{ .NextMonth }}";
     });
 
-    if (locked) return;
-
-    // Add item
-    document.getElementById("add-btn")?.addEventListener("click", async () => {
-      const nameEl = document.getElementById("add-name");
-      const typeEl = document.getElementById("add-type");
-      const amountEl = document.getElementById("add-amount");
-      const errorEl = document.getElementById("add-error");
-
-      const name = nameEl.value.trim();
-      const type = typeEl.value;
-      const expected_amount = parseFloat(amountEl.value);
-
-      if (!name || !type || isNaN(expected_amount) || expected_amount <= 0) {
-        errorEl.classList.remove("hidden");
-        return;
-      }
-      errorEl.classList.add("hidden");
-
-      try {
-        const resp = await fetch(`/plan/${planID}/items`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, type, expected_amount }),
-        });
-        if (!resp.ok) throw new Error();
-        window.location.reload();
-      } catch {
-        errorEl.classList.remove("hidden");
-      }
-    });
-
-    // Edit item
-    document.querySelectorAll("[data-edit-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.editId;
-        document.getElementById(`name-${id}`).classList.add("hidden");
-        document.getElementById(`actions-${id}`).classList.add("hidden");
-        document.getElementById(`edit-${id}`).classList.remove("hidden");
-        document.getElementById(`edit-name-${id}`).focus();
-      });
-    });
-
-    document.querySelectorAll("[data-cancel-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.cancelId;
-        document.getElementById(`name-${id}`).classList.remove("hidden");
-        document.getElementById(`actions-${id}`).classList.remove("hidden");
-        document.getElementById(`edit-${id}`).classList.add("hidden");
-      });
-    });
-
-    document.querySelectorAll("[data-save-id]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.dataset.saveId;
-        const nameEl = document.getElementById(`edit-name-${id}`);
-        const amountEl = document.getElementById(`edit-amount-${id}`);
-        const errorEl = document.getElementById(`error-${id}`);
+    if (!locked) {
+      // Add item
+      document.getElementById("add-btn")?.addEventListener("click", async () => {
+        const nameEl = document.getElementById("add-name");
+        const typeEl = document.getElementById("add-type");
+        const amountEl = document.getElementById("add-amount");
+        const errorEl = document.getElementById("add-error");
 
         const name = nameEl.value.trim();
+        const type = typeEl.value;
         const expected_amount = parseFloat(amountEl.value);
-        if (!name || isNaN(expected_amount) || expected_amount <= 0) {
+
+        if (!name || !type || isNaN(expected_amount) || expected_amount <= 0) {
           errorEl.classList.remove("hidden");
           return;
         }
-
-        btn.disabled = true;
         errorEl.classList.add("hidden");
 
         try {
-          const resp = await fetch(`/plan-items/${id}`, {
-            method: "PUT",
+          const resp = await fetch(`/plan/${planID}/items`, {
+            method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, expected_amount }),
+            body: JSON.stringify({ name, type, expected_amount }),
           });
           if (!resp.ok) throw new Error();
-          document.getElementById(`name-${id}`).textContent = name;
-          document.getElementById(`expected-${id}`).textContent =
-            `$${expected_amount.toFixed(2)}`;
+          window.location.reload();
+        } catch {
+          errorEl.classList.remove("hidden");
+        }
+      });
+
+      // Edit item
+      document.querySelectorAll("[data-edit-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.editId;
+          document.getElementById(`name-${id}`).classList.add("hidden");
+          document.getElementById(`actions-${id}`).classList.add("hidden");
+          document.getElementById(`edit-${id}`).classList.remove("hidden");
+          document.getElementById(`edit-name-${id}`).focus();
+        });
+      });
+
+      document.querySelectorAll("[data-cancel-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.cancelId;
           document.getElementById(`name-${id}`).classList.remove("hidden");
           document.getElementById(`actions-${id}`).classList.remove("hidden");
           document.getElementById(`edit-${id}`).classList.add("hidden");
-        } catch {
-          errorEl.classList.remove("hidden");
-        } finally {
-          btn.disabled = false;
-        }
-      });
-    });
-
-    // Delete item
-    document.querySelectorAll("[data-delete-id]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.dataset.deleteId;
-        const errorEl = document.getElementById(`error-${id}`);
-        btn.disabled = true;
-        errorEl.classList.add("hidden");
-
-        try {
-          const resp = await fetch(`/plan-items/${id}`, {
-            method: "DELETE",
-            credentials: "include",
-          });
-          if (!resp.ok) throw new Error();
-          document.getElementById(`row-${id}`).remove();
-        } catch {
-          errorEl.classList.remove("hidden");
-          btn.disabled = false;
-        }
-      });
-    });
-
-    // Lock plan
-    document.getElementById("lock-btn")?.addEventListener("click", async () => {
-      const errorEl = document.getElementById("lock-error");
-      errorEl.classList.add("hidden");
-
-      try {
-        const resp = await fetch(`/plan/${planID}/lock`, {
-          method: "POST",
-          credentials: "include",
         });
-        if (!resp.ok) throw new Error();
-        window.location.reload();
-      } catch {
-        errorEl.classList.remove("hidden");
-      }
-    });
+      });
+
+      document.querySelectorAll("[data-save-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.saveId;
+          const nameEl = document.getElementById(`edit-name-${id}`);
+          const amountEl = document.getElementById(`edit-amount-${id}`);
+          const errorEl = document.getElementById(`error-${id}`);
+
+          const name = nameEl.value.trim();
+          const expected_amount = parseFloat(amountEl.value);
+          if (!name || isNaN(expected_amount) || expected_amount <= 0) {
+            errorEl.classList.remove("hidden");
+            return;
+          }
+
+          btn.disabled = true;
+          errorEl.classList.add("hidden");
+
+          try {
+            const resp = await fetch(`/plan-items/${id}`, {
+              method: "PUT",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, expected_amount }),
+            });
+            if (!resp.ok) throw new Error();
+            document.getElementById(`name-${id}`).textContent = name;
+            document.getElementById(`expected-${id}`).textContent =
+              `$${expected_amount.toFixed(2)}`;
+            document.getElementById(`name-${id}`).classList.remove("hidden");
+            document.getElementById(`actions-${id}`).classList.remove("hidden");
+            document.getElementById(`edit-${id}`).classList.add("hidden");
+          } catch {
+            errorEl.classList.remove("hidden");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+
+      // Delete item
+      document.querySelectorAll("[data-delete-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.deleteId;
+          const errorEl = document.getElementById(`error-${id}`);
+          btn.disabled = true;
+          errorEl.classList.add("hidden");
+
+          try {
+            const resp = await fetch(`/plan-items/${id}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (!resp.ok) throw new Error();
+            document.getElementById(`row-${id}`).remove();
+          } catch {
+            errorEl.classList.remove("hidden");
+            btn.disabled = false;
+          }
+        });
+      });
+
+      // Lock plan
+      document
+        .getElementById("lock-btn")
+        ?.addEventListener("click", async () => {
+          const errorEl = document.getElementById("lock-error");
+          errorEl.classList.add("hidden");
+
+          try {
+            const resp = await fetch(`/plan/${planID}/lock`, {
+              method: "POST",
+              credentials: "include",
+            });
+            if (!resp.ok) throw new Error();
+            window.location.reload();
+          } catch {
+            errorEl.classList.remove("hidden");
+          }
+        });
+    }
   </script>
 {{ end }}
 {{ define "page-content" }}
