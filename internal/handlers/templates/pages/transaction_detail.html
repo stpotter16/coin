@@ -83,6 +83,12 @@
             >
           </div>
         {{ end }}
+        {{ if .Transaction.AccountName }}
+          <div class="flex justify-between">
+            <span class="text-sm text-base-content/60">Account</span>
+            <span class="text-sm">{{ .Transaction.AccountName }}</span>
+          </div>
+        {{ end }}
         <div class="flex justify-between">
           <span class="text-sm text-base-content/60">Date</span>
           <span class="text-sm">{{ .Transaction.FormattedDate }}</span>

@@ -132,6 +132,11 @@
                             Unassigned
                           </span>
                         {{ end }}
+                        {{ if .AccountName }}
+                          <span class="text-xs text-base-content/40">
+                            {{- .AccountName -}}
+                          </span>
+                        {{ end }}
                         {{ if .Pending }}
                           <span class="text-xs text-base-content/40">
                             Pending

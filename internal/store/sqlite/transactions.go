@@ -91,11 +91,13 @@ func (s Store) DeletePlaidTransaction(ctx context.Context, plaidTransactionID st
 func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transaction, error) {
 	row := s.db.QueryRow(ctx,
 		`SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
+		        COALESCE(a.name, ''),
 		        t.amount, t.transaction_date, t.description, t.merchant_name,
 		        t.pending, t.payment_channel, t.plaid_category_primary,
 		        t.plaid_category_detailed, t.plan_item_id, pi.name,
 		        t.created_time, t.last_modified_time
 		FROM transactions t
+		LEFT JOIN account a ON t.account_id = a.id
 		LEFT JOIN plaid_transactions pt ON t.plaid_transaction_id = pt.id
 		LEFT JOIN plan_items pi ON t.plan_item_id = pi.id
 		WHERE t.id = ?`,
@@ -108,6 +110,7 @@ func (s Store) GetTransactionByID(ctx context.Context, id int) (types.Transactio
 		&tx.ID,
 		&tx.PlaidTransactionID,
 		&tx.AccountID,
+		&tx.AccountName,
 		&tx.Amount,
 		&tx.TransactionDate,
 		&tx.Description,
@@ -151,11 +154,13 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 
 	query := `
 		SELECT t.id, COALESCE(pt.plaid_transaction_id, ''), t.account_id,
+		       COALESCE(a.name, ''),
 		       t.amount, t.transaction_date, t.description, t.merchant_name,
 		       t.pending, t.payment_channel, t.plaid_category_primary,
 		       t.plaid_category_detailed, t.plan_item_id, pi.name,
 		       t.created_time, t.last_modified_time
 		FROM transactions t
+		LEFT JOIN account a ON t.account_id = a.id
 		LEFT JOIN plaid_transactions pt ON t.plaid_transaction_id = pt.id
 		LEFT JOIN plan_items pi ON t.plan_item_id = pi.id
 		WHERE t.transaction_date LIKE ?`
@@ -183,6 +188,7 @@ func (s Store) GetTransactions(ctx context.Context, filter types.TransactionFilt
 			&tx.ID,
 			&tx.PlaidTransactionID,
 			&tx.AccountID,
+			&tx.AccountName,
 			&tx.Amount,
 			&tx.TransactionDate,
 			&tx.Description,

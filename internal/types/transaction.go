@@ -12,6 +12,7 @@ type TransactionDTO struct {
 	ID                    int
 	PlaidTransactionID    string
 	AccountID             int
+	AccountName           string
 	Amount                float64
 	TransactionDate       string // YYYY-MM-DD
 	Description           string
@@ -36,6 +37,7 @@ type Transaction struct {
 	ID                    int
 	PlaidTransactionID    string
 	AccountID             int
+	AccountName           string
 	Amount                float64
 	TransactionDate       time.Time
 	Description           string

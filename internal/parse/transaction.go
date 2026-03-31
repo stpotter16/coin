@@ -44,6 +44,7 @@ func ParseTransactionDTO(dto types.TransactionDTO) (types.Transaction, error) {
 		ID:                 dto.ID,
 		PlaidTransactionID: dto.PlaidTransactionID,
 		AccountID:          dto.AccountID,
+		AccountName:        dto.AccountName,
 		Amount:             dto.Amount,
 		TransactionDate:    date,
 		Description:        dto.Description,
