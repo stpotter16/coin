@@ -123,7 +123,9 @@ func startSyncPoller(ctx context.Context, syncer sync.Syncer) {
 		select {
 		case <-ticker.C:
 			log.Println("sync: starting scheduled sync")
-			syncer.SyncAll(ctx)
+			if err := syncer.SyncAll(ctx); err != nil {
+				log.Printf("sync: scheduled sync failed: %v", err)
+			}
 		case <-ctx.Done():
 			return
 		}

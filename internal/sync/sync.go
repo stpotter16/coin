@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/stpotter16/coin/internal/crypto"
@@ -26,18 +27,23 @@ func New(store store.Store, client plaidclient.Client, encryptionKey []byte) Syn
 }
 
 // SyncAll syncs transactions and account balances for every linked plaid item.
-func (s Syncer) SyncAll(ctx context.Context) {
+// It returns the first error encountered, but always attempts all items.
+func (s Syncer) SyncAll(ctx context.Context) error {
 	items, err := s.store.GetPlaidItems(ctx)
 	if err != nil {
-		log.Printf("sync: failed to load plaid items: %v", err)
-		return
+		return fmt.Errorf("failed to load plaid items: %w", err)
 	}
 
+	var firstErr error
 	for _, item := range items {
 		if err := s.syncItem(ctx, item); err != nil {
 			log.Printf("sync: error syncing item %s (%s): %v", item.InstitutionName, item.PlaidItemID, err)
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
+	return firstErr
 }
 
 func (s Syncer) syncItem(ctx context.Context, item types.PlaidItem) error {
