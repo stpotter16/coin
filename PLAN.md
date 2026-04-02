@@ -2,100 +2,43 @@
 
 ## Overview
 
-Coin is a personal finance tool that helps users understand their discretionary spending. It syncs transaction data from Plaid, but the core insight driving the product is the distinction between **fixed** and **flexible** expenses.
+Coin is a personal finance tool that helps users understand their discretionary spending. Transactions are entered manually by the user. The core insight is the distinction between **fixed** and **flexible** expenses.
 
 Each month the user creates a **plan** — a set of expected income and fixed expense line items. Transactions are then assigned to plan items (income or fixed expense) or left unassigned (implicitly flexible). The primary metric is **remaining discretionary**: actual income received, minus actual fixed expenses paid, minus flexible spending so far.
 
 This is deliberately different from traditional budgeting apps that focus on categories. The user doesn't need to categorise every transaction — they only need to identify which transactions are income or fixed expenses. Everything else is flexible spending by definition.
 
-## Plaid Hierarchy
-
-Plaid structures financial data in three levels:
-
-```
-Institution (e.g. Chase)
-└── Item  (one OAuth connection to that institution)
-    └── Accounts  (checking, savings, credit card, etc.)
-        └── Transactions
-```
-
-The local schema mirrors this hierarchy.
-
 ## Schema
 
-### `plaid_items`
+### `account`
 
-One row per connected institution. Holds the Plaid access token (encrypted) and the transaction sync cursor.
+One row per account the user has defined (e.g. "Chase Checking", "Amex Card").
 
-| Column             | Type    | Notes                                                    |
-| ------------------ | ------- | -------------------------------------------------------- |
-| id                 | INTEGER | Primary key                                              |
-| plaid_item_id      | TEXT    | Plaid's item ID                                          |
-| plaid_access_token | TEXT    | AES-256-GCM encrypted — see Security section             |
-| institution_id     | TEXT    | Plaid institution ID                                     |
-| institution_name   | TEXT    | Human-readable institution name                          |
-| transaction_cursor | TEXT    | Cursor for `/transactions/sync` — null before first sync |
-| created_time       | TEXT    | RFC3339                                                  |
-| last_modified_time | TEXT    | RFC3339                                                  |
-
-### `accounts`
-
-One row per account within an item.
-
-| Column             | Type    | Notes                                                    |
-| ------------------ | ------- | -------------------------------------------------------- |
-| id                 | INTEGER | Primary key                                              |
-| plaid_account_id   | TEXT    | Plaid's account ID                                       |
-| plaid_item_id      | INTEGER | FK → plaid_items.id                                      |
-| name               | TEXT    | Account name (e.g. "Plaid Checking")                     |
-| official_name      | TEXT    | Official account name from the institution (nullable)    |
-| type               | TEXT    | Plaid account type: depository, credit, loan, investment |
-| subtype            | TEXT    | Plaid account subtype: checking, savings, credit card    |
-| current_balance    | REAL    | Current balance as reported by Plaid (nullable)          |
-| available_balance  | REAL    | Available balance (nullable)                             |
-| iso_currency_code  | TEXT    | e.g. "USD"                                               |
-| created_time       | TEXT    | RFC3339                                                  |
-| last_modified_time | TEXT    | RFC3339                                                  |
-
-### `plaid_transactions`
-
-Raw transaction data synced from Plaid. Write-only from the sync job — never edited by users or the application layer. Source of truth for what Plaid knows.
-
-| Column                  | Type    | Notes                                                             |
-| ----------------------- | ------- | ----------------------------------------------------------------- |
-| id                      | INTEGER | Primary key                                                       |
-| plaid_transaction_id    | TEXT    | Plaid's transaction ID — unique                                   |
-| account_id              | INTEGER | FK → accounts.id                                                  |
-| amount                  | REAL    | See Amount Convention section                                     |
-| transaction_date        | TEXT    | Date of transaction (YYYY-MM-DD)                                  |
-| description             | TEXT    | Plaid's merchant/description string                               |
-| merchant_name           | TEXT    | Cleaned merchant name from Plaid (nullable)                       |
-| pending                 | INTEGER | Boolean: 1 if pending                                             |
-| payment_channel         | TEXT    | e.g. "online", "in store", "other"                                |
-| plaid_category_primary  | TEXT    | Plaid `personal_finance_category.primary` (e.g. "FOOD_AND_DRINK") |
-| plaid_category_detailed | TEXT    | Plaid `personal_finance_category.detailed`                        |
-| created_time            | TEXT    | RFC3339                                                           |
-| last_modified_time      | TEXT    | RFC3339                                                           |
+| Column             | Type    | Notes                                                             |
+| ------------------ | ------- | ----------------------------------------------------------------- |
+| id                 | INTEGER | Primary key                                                       |
+| name               | TEXT    | User-defined name (e.g. "Chase Checking")                         |
+| type               | TEXT    | `checking`, `savings`, `credit`, `loan`, `investment`, or `other` |
+| created_time       | TEXT    | RFC3339                                                           |
+| last_modified_time | TEXT    | RFC3339                                                           |
 
 ### `transactions`
 
-Domain model transactions. Populated by the transform job from `plaid_transactions`, or entered manually by the user. This is the table the application layer reads from exclusively.
+All transactions are manually entered by the user.
 
-| Column               | Type    | Notes                                                                             |
-| -------------------- | ------- | --------------------------------------------------------------------------------- |
-| id                   | INTEGER | Primary key                                                                       |
-| plaid_transaction_id | TEXT    | FK → plaid_transactions.plaid_transaction_id — null for manually entered rows     |
-| account_id           | INTEGER | FK → accounts.id — nullable for manually entered rows not tied to a Plaid account |
-| amount               | REAL    | See Amount Convention section                                                     |
-| transaction_date     | TEXT    | Date of transaction (YYYY-MM-DD)                                                  |
-| description          | TEXT    | Merchant/description string                                                       |
-| merchant_name        | TEXT    | Nullable                                                                          |
-| pending              | INTEGER | Boolean: 1 if pending                                                             |
-| payment_channel      | TEXT    | Nullable                                                                          |
-| plan_item_id         | INTEGER | FK → plan_items.id — null means unassigned (flexible spending)                    |
-| created_by           | INTEGER | FK → user.id — null for Plaid-sourced rows                                        |
-| created_time         | TEXT    | RFC3339                                                                           |
-| last_modified_time   | TEXT    | RFC3339                                                                           |
+| Column             | Type    | Notes                                                          |
+| ------------------ | ------- | -------------------------------------------------------------- |
+| id                 | INTEGER | Primary key                                                    |
+| account_id         | INTEGER | FK → account.id — nullable                                     |
+| amount             | REAL    | See Amount Convention section                                  |
+| transaction_date   | TEXT    | Date of transaction (YYYY-MM-DD)                               |
+| description        | TEXT    | Merchant or description string                                 |
+| merchant_name      | TEXT    | Optional cleaned merchant name (nullable)                      |
+| pending            | INTEGER | Boolean: 1 if pending                                          |
+| plan_item_id       | INTEGER | FK → plan_items.id — null means unassigned (flexible spending) |
+| created_by         | INTEGER | FK → user.id                                                   |
+| created_time       | TEXT    | RFC3339                                                        |
+| last_modified_time | TEXT    | RFC3339                                                        |
 
 ### `plans`
 
@@ -132,114 +75,17 @@ Removed from scope. Can be re-added later if there is user demand.
 
 ## Amount Convention
 
-Amounts follow Plaid's convention, stored as-is:
+- **Positive = money out** (purchases, withdrawals, transfers out) — display in red (`text-error`)
+- **Negative = money in** (income, deposits, refunds) — display in green (`text-success`)
 
-- **Positive = money out** (purchases, withdrawals, transfers out)
-- **Negative = money in** (income, deposits, refunds, credit card payments)
+This convention is applied consistently. When a user enters a transaction, the UI should make the sign explicit — e.g. an expense/income toggle — so the user doesn't have to think about signed numbers.
 
-This is consistent across all Plaid account types (depository and credit). No normalisation is applied at sync time.
+## Environment Variables
 
-On display, positive amounts should be shown in red (expense) and negative amounts in green (income).
-
-## Sync Strategy
-
-### Two-Layer Transaction Model
-
-Transactions flow through two layers:
-
-1. **Raw layer** (`plaid_transactions`) — a faithful cache of what Plaid returns. Written only by the sync job. Never modified by user action or application logic.
-2. **Domain layer** (`transactions`) — what the application reasons about. Populated by a transform job from `plaid_transactions`, or entered manually by the user.
-
-This decoupling means the app can handle transactions that never appear in Plaid (cash, checks, manual entries) while still benefiting from Plaid's automatic sync for everything else.
-
-### Plaid Sync
-
-Polling runs hourly via a goroutine ticker. Each cycle:
-
-1. For each `plaid_item`, call `/transactions/sync` with its stored cursor
-2. Upsert added/modified raw transactions into `plaid_transactions`
-3. Delete removed transactions from `plaid_transactions`
-4. Update the item's `transaction_cursor` with the next cursor from Plaid
-5. Refresh account balances via `/accounts/get`
-
-### Transform Job
-
-Runs after each Plaid sync cycle. For each `plaid_transactions` row that does not yet have a corresponding `transactions` row:
-
-1. Create a `transactions` row populated from the raw data
-2. Link it via `plaid_transaction_id`
-
-The job is idempotent — re-running it never creates duplicate domain transactions. When Plaid sends a **modified** raw transaction, the transform job (or a reconciliation step) updates the Plaid-sourced fields on the domain row while preserving user data (`plan_item_id`). When Plaid sends a **removed** raw transaction, the corresponding domain row is also deleted (plan assignment is lost).
-
-Account data (balances) is refreshed during each sync pass using `/accounts/get`.
-
-## Security
-
-### Access Token Encryption
-
-Plaid access tokens are long-lived OAuth credentials — one per connected institution. They are never stored in plaintext.
-
-**Approach:** AES-256-GCM application-level encryption.
-
-- Encryption key stored in the `COIN_ENCRYPTION_KEY` environment variable (32 random bytes, base64-encoded)
-- Each access token is encrypted before being written to `plaid_items.plaid_access_token`
-- Decryption happens in application memory only when a Plaid API call is needed
-- A new random nonce is generated per encryption operation (prepended to the ciphertext)
-- Implementation lives in `internal/crypto`
-
-### Environment Variables
-
-| Variable               | Purpose                                      |
-| ---------------------- | -------------------------------------------- |
-| `COIN_DB_PATH`         | Path to SQLite database directory            |
-| `COIN_SESSION_ENV_KEY` | HMAC secret for session cookies              |
-| `COIN_ENCRYPTION_KEY`  | AES-256-GCM key for encrypting access tokens |
-| `COIN_PLAID_CLIENT_ID` | Plaid API client ID                          |
-| `COIN_PLAID_SECRET`    | Plaid API secret (sandbox or production)     |
-| `COIN_PLAID_ENV`       | Plaid environment: `sandbox` or `production` |
-
-## Plaid Integration
-
-### Overview
-
-Plaid is integrated via the official Go SDK (`github.com/plaid/plaid-go/v21`). The integration covers three concerns: the Link flow (connecting an institution), transaction syncing (polling), and account balance refreshing.
-
-### Link Flow
-
-Plaid Link is a JavaScript widget that handles the institution OAuth flow in the browser.
-
-1. User initiates connection from the Settings page
-2. Browser calls `POST /plaid/link/token` — server creates a Plaid link token and returns it
-3. Browser opens the Plaid Link widget using the link token
-4. On success, Plaid returns a `public_token` to the browser
-5. Browser calls `POST /plaid/link/exchange` with the `public_token`
-6. Server exchanges it for a long-lived `access_token` via Plaid API
-7. Server encrypts the `access_token` (AES-256-GCM) and saves it to `plaid_item`
-8. Server triggers an initial sync for the new item
-
-### Transaction Sync
-
-Polling runs hourly via a goroutine ticker started in `main.go`. Each cycle:
-
-1. Load all `plaid_item` rows from the DB
-2. Decrypt each item's `access_token`
-3. Call `/transactions/sync` with the item's stored cursor (nil on first sync)
-4. Upsert `added` and `modified` transactions into `plaid_transactions`
-5. Delete `removed` transactions from `plaid_transactions` (and cascade to `transactions`)
-6. Update the item's `transaction_cursor` with the next cursor from the response
-7. Refresh account balances via `/accounts/get` and upsert into `accounts`
-8. Run the transform job to create/update domain `transactions` rows
-
-### Implementation Steps
-
-1. ✅ Add `github.com/plaid/plaid-go/v21` dependency
-2. ✅ Add `internal/crypto` — AES-256-GCM encrypt/decrypt
-3. ✅ Add store interface methods + sqlite implementations for `plaid_item`, `account`, `plaid_transactions`
-4. ✅ Add `internal/plaidclient` — thin wrapper initialising the Plaid API client from env vars
-5. ✅ Add `internal/sync` — sync logic (writes to `plaid_transactions`)
-6. ✅ Add Link flow handlers (`POST /plaid/link/token`, `POST /plaid/link/exchange`)
-7. ✅ Wire hourly polling goroutine in `main.go`
-8. ✅ Add `RunTransform` — promotes `plaid_transactions` rows to domain `transactions`; runs after each item sync
+| Variable               | Purpose                         |
+| ---------------------- | ------------------------------- |
+| `COIN_DB_PATH`         | Path to SQLite database file    |
+| `COIN_SESSION_ENV_KEY` | HMAC secret for session cookies |
 
 ## UI Considerations
 
@@ -252,20 +98,22 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with five 
 | Dashboard    | Remaining discretionary + income/fixed/flexible breakdown |
 | Plan         | Monthly plan management — income and fixed expense items  |
 | Transactions | Full transaction list, filterable by account/date         |
-| Accounts     | Connected institutions and account balances               |
-| Settings     | Plaid connection management; user management              |
+| Accounts     | User-defined accounts + account creation                  |
+| Settings     | User management                                           |
 
 ### Implementation Status
 
-| Page               | Status  |
-| ------------------ | ------- |
-| Login              | ✅ Done |
-| Dashboard          | ✅ Done |
-| Plan management    | ✅ Done |
-| Settings           | ✅ Done |
-| Accounts           | ✅ Done |
-| Transaction detail | ✅ Done |
-| Transactions       | ✅ Done |
+| Page                     | Status      |
+| ------------------------ | ----------- |
+| Login                    | ✅ Done     |
+| Dashboard                | ✅ Done     |
+| Plan management          | ✅ Done     |
+| Accounts                 | ⬜ Rework   |
+| Transaction list         | ⬜ Rework   |
+| Transaction detail       | ⬜ Rework   |
+| New transaction form     | ⬜ Not done |
+| Edit transaction form    | ⬜ Not done |
+| Settings                 | ⬜ Rework   |
 
 ### Dashboard
 
@@ -291,22 +139,14 @@ A month stepper allows navigating to previous (locked) months. Locked months are
 
 ### Amount Display
 
-- Positive amounts (money out) shown in red
-- Negative amounts (money in) shown in green
-
-### Settings
-
-- Lists connected institutions with a "Connected" badge
-- "Connect an account" button triggers the Plaid Link flow
-- Plan setup flow for first-time users
+- Positive amounts (money out) shown in red (`text-error`)
+- Negative amounts (money in) shown in green (`text-success`)
 
 ### Accounts
 
-Lists connected institutions grouped by institution with each account beneath.
+Lists user-defined accounts. Each row shows name and type. Includes an "Add account" button that opens a creation form. Each account has a delete action.
 
-Each account card shows name, subtype, current balance, available balance, last synced time.
-
-Empty state: prompt to connect an account via Settings.
+Empty state: prompt to add an account.
 
 ### Transactions
 
@@ -314,12 +154,28 @@ Full transaction list with filtering.
 
 **Filter bar (sticky):** month stepper + account filter dropdown.
 
-**Transaction list:** grouped by date. Each row shows merchant name (or description), amount (red/green), and assignment status — either the plan item name or an "Unassigned" badge.
+**Transaction list:** grouped by date. Each row shows merchant name (or description), amount (red/green), account name, and plan assignment status — either the plan item name or an "Unassigned" badge.
+
+**"Add transaction" button** — opens `GET /transactions/new` form.
 
 **Transaction detail (`GET /transactions/:id`):**
 
 - Full transaction details
-- **Plan item assignment** — dropdown of plan items for the current month's plan; saving assigns the transaction to that item
+- Edit button → `GET /transactions/:id/edit`
+- Delete button
+- Plan item assignment — dropdown of plan items for the transaction's month
+
+### New / Edit Transaction Form
+
+Fields:
+- Description (required)
+- Amount (required) — always entered as a positive number; sign is determined by the expense/income toggle
+- Date (required)
+- Account (optional dropdown)
+- Merchant name (optional)
+- Pending checkbox (default unchecked)
+
+**Expense/Income toggle:** DaisyUI `join` segmented control with two buttons — "Expense" (default) and "Income". Active "Expense" uses `btn-error`; active "Income" uses `btn-success`. The JS negates the amount before sending if "Income" is selected. On edit, the toggle is pre-selected based on the stored sign (positive → Expense, negative → Income) and the amount field shows the absolute value.
 
 ### Plan Management
 
@@ -335,41 +191,74 @@ A plan page (`GET /plan` or `/plan?month=YYYY-MM`) for viewing and editing the c
 
 **First-use setup flow:** if no plan exists for the current month and no prior month exists to copy from, prompt the user to create their first plan by entering income and fixed expense items.
 
-## Tidy Up
+### Settings
 
-Loose items to revisit before considering the project production-ready.
+User management only (change password, manage users). No Plaid connection management.
 
-### 2. Input Parsing at Application Boundaries
+## Plaid Removal & Manual Entry — Implementation Plan
 
-✅ All POST handlers delegate JSON decoding and field validation to `internal/parse` functions. Handler bodies are thin.
+Plaid was previously integrated for automatic transaction sync. This has been removed in favour of manual transaction entry. The following tracks the migration work.
 
-✅ `TransactionDate` is now `time.Time` on the `Transaction` type. Parsing from the Plaid `YYYY-MM-DD` string happens once at the boundary (`ParseTransactionDTO`). The DTO holds a `string` for DB scanning. Display methods (`FormattedDate`, `GroupDate`) call `.Format()` directly with no error path.
+### 1. Delete Plaid/Sync/Crypto packages
 
-✅ `ParsePlaidTransaction` returns `types.PlaidTransaction` (a flat struct with plain SQL-compatible fields), not `types.Transaction`. The date string is passed through as-is from Plaid — no parsing needed on the write path.
+- ⬜ Delete `internal/crypto/` (including tests)
+- ⬜ Delete `internal/plaidclient/`
+- ⬜ Delete `internal/sync/` (including tests)
+- ⬜ Delete `internal/handlers/plaid.go`
+- ⬜ Delete `internal/handlers/sync.go`
+- ⬜ Delete `internal/parse/plaid.go`
+- ⬜ Delete `internal/types/plaid_transaction.go`
+- ⬜ Delete `internal/types/plaid_item.go` (if it exists)
+- ⬜ Remove `github.com/plaid/plaid-go/v21` from `go.mod`/`go.sum`
 
-### 3. Unit Test Coverage
+### 2. Schema rewrite
 
-✅ Core packages covered:
+- ⬜ Rewrite `internal/store/sqlite/migrations/001_initial.sql` — simplified schema (no `plaid_items`, no `plaid_transactions`, simplified `account`, simplified `transactions`)
+- ⬜ Delete `internal/store/sqlite/migrations/002_add_excluded.sql`
 
-- `internal/crypto` — encrypt/decrypt round-trip, tampered ciphertext, wrong key, invalid base64, too-short ciphertext.
-- `internal/auth` — hash/verify round-trip, wrong password, malformed hash, unique hashes.
-- `internal/store/sqlite` — 12 integration tests against a real temp SQLite DB: users, plans, plan items (with lock enforcement), transactions (transform, exclude, plan assignment, flexible spending, plan item summaries).
-- `internal/handlers/middleware` — API middleware returns 401 with no/invalid cookie; view middleware redirects to `/login`.
+### 3. Types
 
-⬜ Not yet covered: `internal/sync` mapping logic (`mapAccount`, `mapTransaction`), cursor pagination.
+- ⬜ Remove `PlaidItem`, `PlaidTransaction` types
+- ⬜ Simplify `Account` type — remove `PlaidAccountID`, `PlaidItemID`, `OfficialName`, balance fields
+- ⬜ Simplify `Transaction` type — remove `PlaidTransactionID`, `Excluded`, `PaymentChannel`, `PlaidCategoryPrimary`, `PlaidCategoryDetailed`
+- ⬜ Remove `PlaidCategory` wrapper type
+- ⬜ Add `TransactionRequest` type for create/update form submissions
 
-### 4. Forms vs. JavaScript
+### 4. Store interface & SQLite implementations
 
-✅ All mutations use `fetch` calls in nonce-gated `<script type="module">` blocks. No plain HTML form POSTs remain.
+- ⬜ Remove from `store.Store`: `CreatePlaidItem`, `GetPlaidItems`, `UpdatePlaidItemCursor`, `UpsertAccount`, `GetAccountsByItemID`, `UpsertPlaidTransaction`, `DeletePlaidTransaction`, `RunTransform`, `UpdateTransactionExcluded`
+- ⬜ Add to `store.Store`: `CreateAccount`, `DeleteAccount`, `CreateTransaction`, `UpdateTransaction`, `DeleteTransaction`
+- ⬜ Delete `internal/store/sqlite/plaid_items.go`
+- ⬜ Rewrite `internal/store/sqlite/accounts.go` — simple CRUD
+- ⬜ Rewrite `internal/store/sqlite/transactions.go` — remove Plaid/exclude logic, add create/update/delete
+- ⬜ Update `internal/store/sqlite/store_test.go` — remove Plaid helpers, add account/transaction CRUD tests
 
-- Plaid Link flow — JS-driven by necessity (Plaid widget).
-- Account filter dropdown — JS updates the URL on change.
+### 5. Parse layer
 
-### 5. Other
+- ⬜ Update `internal/parse/transaction.go` — replace `ParsePlaidTransaction`, add `ParseTransactionRequest`
+- ⬜ Remove `internal/parse/plaid.go`
 
-- **Transaction list assignment badge** — ✅ Each row shows the plan item name (primary badge) or "Unassigned" (ghost badge).
-- **Account name on transactions** — ✅ Transaction list rows and detail page both show the associated account name.
-- **Manual sync** — ✅ Dashboard has a "Sync now" button that calls `POST /sync`, which runs `SyncAll` and surfaces errors to the user via an alert. `SyncAll` now returns an error.
-- **Excluded transactions** — ✅ Transactions can be excluded from all totals (flexible spending, plan item actuals) via a toggle on the transaction detail page. Excluded transactions show an "Excluded" badge in the list. Implemented as `excluded INTEGER NOT NULL DEFAULT 0` on the `transactions` table (migration `002`).
-- **Error states** — ✅ Authenticated view handlers use `renderAppError(w, r, status)` to render a styled error page (status code + message + "Go home" button). Login and API handlers keep plain `http.Error`.
-- **Pagination** — ✅ `GetTransactions` uses offset pagination with a page size of 100; prev/next page links rendered at the bottom of the transaction list.
+### 6. Server wiring
+
+- ⬜ Update `cmd/server/main.go` — remove `plaidClient`, `syncer`, `encryptionKey`, `startSyncPoller`, `loadEncryptionKey`
+- ⬜ Update `internal/handlers/server.go` — remove `plaidClient`, `syncer`, `encryptionKey` params
+- ⬜ Update `internal/handlers/routes.go` — remove Plaid/sync routes, add account CRUD and transaction CRUD routes
+
+### 7. Handlers
+
+- ⬜ Add `internal/handlers/accounts.go` — `POST /accounts`, `DELETE /accounts/{id}`
+- ⬜ Update `internal/handlers/transactions.go` — add `POST /transactions`, `PUT /transactions/{id}`, `DELETE /transactions/{id}`
+- ⬜ Update `internal/handlers/views.go` — remove sync button rendering, add new transaction/edit/account views
+
+### 8. Templates
+
+- ⬜ Update `templates/pages/index.html` — remove "Sync now" button
+- ⬜ Update `templates/pages/accounts.html` — manual account list + add/delete
+- ⬜ Update `templates/pages/transactions.html` — add "New transaction" button
+- ⬜ Update `templates/pages/transaction_detail.html` — add edit/delete, remove exclude toggle
+- ⬜ Add `templates/pages/transaction_form.html` — shared create/edit form
+- ⬜ Update `templates/pages/settings.html` — remove Plaid section
+
+### Future
+
+- ⬜ CSV import — bulk transaction entry from bank CSV export
