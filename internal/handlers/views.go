@@ -15,8 +15,6 @@ import (
 	"github.com/stpotter16/coin/internal/types"
 )
 
-
-
 type viewProps struct {
 	CsrfToken  string
 	CspNonce   string
@@ -25,6 +23,29 @@ type viewProps struct {
 
 //go:embed templates
 var templateFS embed.FS
+
+var errorTmpl = template.Must(
+	template.New("base.html").ParseFS(
+		templateFS,
+		"templates/layouts/base.html",
+		"templates/layouts/app.html",
+		"templates/pages/error.html",
+	))
+
+func renderAppError(w http.ResponseWriter, r *http.Request, status int) {
+	nonce, _ := middleware.NonceFromContext(r.Context())
+	w.WriteHeader(status)
+	props := struct {
+		viewProps
+		Status int
+	}{
+		viewProps: viewProps{CspNonce: nonce},
+		Status:    status,
+	}
+	if err := errorTmpl.Execute(w, props); err != nil {
+		log.Printf("renderAppError: failed to render error template: %v", err)
+	}
+}
 
 func loginGet() http.HandlerFunc {
 	t := template.Must(
@@ -61,14 +82,14 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 		nonce, err := extractCspNonceOnly(r)
 		if err != nil {
 			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		items, err := s.GetPlaidItems(r.Context())
 		if err != nil {
 			log.Printf("indexGet: failed to load plaid items: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -78,14 +99,14 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 		var summary types.DashboardSummary
 		if plan, found, err := s.GetPlanByMonth(r.Context(), year, month); err != nil {
 			log.Printf("indexGet: failed to load plan: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		} else if found {
 			summary.HasPlan = true
 			summaries, err := s.GetPlanItemSummaries(r.Context(), plan.ID)
 			if err != nil {
 				log.Printf("indexGet: failed to load plan item summaries: %v", err)
-				http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+				renderAppError(w, r, http.StatusInternalServerError)
 				return
 			}
 			for _, item := range summaries {
@@ -102,7 +123,7 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 		flexible, err := s.GetFlexibleSpending(r.Context(), year, month)
 		if err != nil {
 			log.Printf("indexGet: failed to load flexible spending: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 		summary.FlexibleSpending = flexible
@@ -119,7 +140,7 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create index page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }
@@ -137,7 +158,7 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 		nonce, err := extractCspNonceOnly(r)
 		if err != nil {
 			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -170,7 +191,7 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 		accounts, err := store.GetAllAccounts(r.Context())
 		if err != nil {
 			log.Printf("transactionsGet: failed to load accounts: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -183,7 +204,7 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 		})
 		if err != nil {
 			log.Printf("transactionsGet: failed to load transactions: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -247,7 +268,7 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create transactions page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }
@@ -265,24 +286,24 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 		nonce, err := extractCspNonceOnly(r)
 		if err != nil {
 			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		id, err := strconv.Atoi(r.PathValue("id"))
 		if err != nil {
-			http.NotFound(w, r)
+			renderAppError(w, r, http.StatusNotFound)
 			return
 		}
 
 		tx, err := s.GetTransactionByID(r.Context(), id)
 		if errors.Is(err, store.ErrTransactionNotFound) {
-			http.NotFound(w, r)
+			renderAppError(w, r, http.StatusNotFound)
 			return
 		}
 		if err != nil {
 			log.Printf("transactionDetailGet: failed to load transaction %d: %v", id, err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -291,13 +312,13 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 		txYear, txMonth := tx.TransactionDate.Year(), int(tx.TransactionDate.Month())
 		if plan, found, err := s.GetPlanByMonth(r.Context(), txYear, txMonth); err != nil {
 			log.Printf("transactionDetailGet: failed to load plan for %d-%02d: %v", txYear, txMonth, err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		} else if found {
 			planItems, err = s.GetPlanItems(r.Context(), plan.ID)
 			if err != nil {
 				log.Printf("transactionDetailGet: failed to load plan items: %v", err)
-				http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+				renderAppError(w, r, http.StatusInternalServerError)
 				return
 			}
 		}
@@ -314,11 +335,10 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create transaction detail page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }
-
 
 func accountsGet(store store.Store) http.HandlerFunc {
 	t := template.Must(
@@ -333,14 +353,14 @@ func accountsGet(store store.Store) http.HandlerFunc {
 		nonce, err := extractCspNonceOnly(r)
 		if err != nil {
 			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		items, err := store.GetPlaidItems(r.Context())
 		if err != nil {
 			log.Printf("accountsGet: failed to load plaid items: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -349,7 +369,7 @@ func accountsGet(store store.Store) http.HandlerFunc {
 			accounts, err := store.GetAccountsByItemID(r.Context(), item.ID)
 			if err != nil {
 				log.Printf("accountsGet: failed to load accounts for item %d: %v", item.ID, err)
-				http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+				renderAppError(w, r, http.StatusInternalServerError)
 				return
 			}
 
@@ -369,11 +389,10 @@ func accountsGet(store store.Store) http.HandlerFunc {
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create accounts page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }
-
 
 func settingsGet(store store.Store) http.HandlerFunc {
 	t := template.Must(
@@ -388,14 +407,14 @@ func settingsGet(store store.Store) http.HandlerFunc {
 		nonce, err := extractCspNonceOnly(r)
 		if err != nil {
 			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		items, err := store.GetPlaidItems(r.Context())
 		if err != nil {
 			log.Printf("settingsGet: failed to load plaid items: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -409,7 +428,7 @@ func settingsGet(store store.Store) http.HandlerFunc {
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create settings page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }
@@ -427,14 +446,14 @@ func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerF
 		nonce, err := extractCspNonceOnly(r)
 		if err != nil {
 			log.Printf("Could not extract csp nonce from ctx: %v", err)
-			http.Error(w, "Could not construct session nonce", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		session, err := sessionManager.SessionFromContext(r.Context())
 		if err != nil {
 			log.Printf("planGet: could not get session from ctx: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -449,14 +468,14 @@ func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerF
 		plan, err := s.GetOrCreatePlan(r.Context(), year, month, session.UserId)
 		if err != nil {
 			log.Printf("planGet: failed to get/create plan: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		summaries, err := s.GetPlanItemSummaries(r.Context(), plan.ID)
 		if err != nil {
 			log.Printf("planGet: failed to load plan items: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
@@ -490,7 +509,7 @@ func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerF
 
 		if err := t.Execute(w, props); err != nil {
 			log.Printf("Could not create plan page: %v", err)
-			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }

@@ -1,0 +1,23 @@
+{{ define "title" }}Error{{ end }}
+{{ define "script-tags" }}{{ end }}
+{{ define "page-content" }}
+  <div
+    class="flex flex-col items-center justify-center gap-4 pt-16 text-center"
+  >
+    <p class="text-6xl font-bold text-base-content/20">{{ .Status }}</p>
+    <div>
+      {{ if eq .Status 404 }}
+        <p class="text-lg font-semibold">Page not found</p>
+        <p class="text-base-content/60 mt-1">
+          That page doesn't exist or may have been removed.
+        </p>
+      {{ else }}
+        <p class="text-lg font-semibold">Something went wrong</p>
+        <p class="text-base-content/60 mt-1">
+          An unexpected error occurred. Please try again.
+        </p>
+      {{ end }}
+    </div>
+    <a href="/" class="btn btn-primary">Go home</a>
+  </div>
+{{ end }}
