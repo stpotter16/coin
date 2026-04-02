@@ -27,3 +27,7 @@ lint/sql:
 
 lint/frontend:
 	./dev-scripts/check-frontend.sh
+
+
+test/go:
+	go test ./...

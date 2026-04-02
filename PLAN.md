@@ -349,13 +349,14 @@ Loose items to revisit before considering the project production-ready.
 
 ### 3. Unit Test Coverage
 
-Currently there are no unit tests. Priority areas:
+✅ Core packages covered:
 
-- `internal/crypto` — encrypt/decrypt round-trip, tampered ciphertext, wrong key.
-- `internal/auth` — hash/verify round-trip, wrong password, malformed hash.
-- `internal/sync` — mapping logic (`mapAccount`, `mapTransaction`), cursor pagination.
-- `internal/store/sqlite` — integration tests against an in-memory or temp SQLite DB for all Store methods.
-- Handler tests — at minimum, smoke tests for auth-required routes returning 401 without a session.
+- `internal/crypto` — encrypt/decrypt round-trip, tampered ciphertext, wrong key, invalid base64, too-short ciphertext.
+- `internal/auth` — hash/verify round-trip, wrong password, malformed hash, unique hashes.
+- `internal/store/sqlite` — 12 integration tests against a real temp SQLite DB: users, plans, plan items (with lock enforcement), transactions (transform, exclude, plan assignment, flexible spending, plan item summaries).
+- `internal/handlers/middleware` — API middleware returns 401 with no/invalid cookie; view middleware redirects to `/login`.
+
+⬜ Not yet covered: `internal/sync` mapping logic (`mapAccount`, `mapTransaction`), cursor pagination.
 
 ### 4. Forms vs. JavaScript
 
@@ -370,5 +371,5 @@ Currently there are no unit tests. Priority areas:
 - **Account name on transactions** — ✅ Transaction list rows and detail page both show the associated account name.
 - **Manual sync** — ✅ Dashboard has a "Sync now" button that calls `POST /sync`, which runs `SyncAll` and surfaces errors to the user via an alert. `SyncAll` now returns an error.
 - **Excluded transactions** — ✅ Transactions can be excluded from all totals (flexible spending, plan item actuals) via a toggle on the transaction detail page. Excluded transactions show an "Excluded" badge in the list. Implemented as `excluded INTEGER NOT NULL DEFAULT 0` on the `transactions` table (migration `002`).
-- **Error states** — ⬜ most error paths return a plain `http.Error` text response; consider consistent error page rendering.
+- **Error states** — ✅ Authenticated view handlers use `renderAppError(w, r, status)` to render a styled error page (status code + message + "Go home" button). Login and API handlers keep plain `http.Error`.
 - **Pagination** — ✅ `GetTransactions` uses offset pagination with a page size of 100; prev/next page links rendered at the bottom of the transaction list.
