@@ -6,45 +6,37 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/plaid/plaid-go/v21/plaid"
 	"github.com/stpotter16/coin/internal/types"
 )
 
-func ParseTransactionExcluded(r *http.Request) (types.TransactionExcludedRequest, error) {
+func ParseTransactionRequest(r *http.Request) (types.TransactionRequest, error) {
 	var body struct {
-		Excluded bool `json:"excluded"`
+		AccountID    *int    `json:"account_id"`
+		Amount       float64 `json:"amount"` // signed: positive = expense, negative = income
+		Date         string  `json:"date"`
+		Description  string  `json:"description"`
+		MerchantName *string `json:"merchant_name"`
+		Pending      bool    `json:"pending"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		return types.TransactionExcludedRequest{}, err
+		return types.TransactionRequest{}, err
 	}
-	return types.TransactionExcludedRequest{Excluded: body.Excluded}, nil
+	if body.Description == "" {
+		return types.TransactionRequest{}, fmt.Errorf("description is required")
+	}
+	if _, err := time.Parse("2006-01-02", body.Date); err != nil {
+		return types.TransactionRequest{}, fmt.Errorf("invalid date %q", body.Date)
+	}
+	return types.TransactionRequest{
+		AccountID:    body.AccountID,
+		Amount:       body.Amount,
+		Date:         body.Date,
+		Description:  body.Description,
+		MerchantName: body.MerchantName,
+		Pending:      body.Pending,
+	}, nil
 }
 
-func ParsePlaidTransaction(pt plaid.Transaction, accountID int) (types.PlaidTransaction, error) {
-	t := types.PlaidTransaction{
-		PlaidTransactionID: pt.GetTransactionId(),
-		AccountID:          accountID,
-		Amount:             pt.GetAmount(),
-		TransactionDate:    pt.GetDate(),
-		Description:        pt.GetName(),
-		Pending:            pt.GetPending(),
-		PaymentChannel:     pt.GetPaymentChannel(),
-	}
-
-	if name, ok := pt.GetMerchantNameOk(); ok && name != nil {
-		t.MerchantName = name
-	}
-
-	if pt.HasPersonalFinanceCategory() {
-		pfc := pt.GetPersonalFinanceCategory()
-		primary := pfc.GetPrimary()
-		detailed := pfc.GetDetailed()
-		t.PlaidCategoryPrimary = &primary
-		t.PlaidCategoryDetailed = &detailed
-	}
-
-	return t, nil
-}
 
 func ParseTransactionDTO(dto types.TransactionDTO) (types.Transaction, error) {
 	date, err := time.Parse("2006-01-02", dto.TransactionDate)
@@ -53,30 +45,23 @@ func ParseTransactionDTO(dto types.TransactionDTO) (types.Transaction, error) {
 	}
 
 	t := types.Transaction{
-		ID:                 dto.ID,
-		PlaidTransactionID: dto.PlaidTransactionID,
-		AccountID:          dto.AccountID,
-		AccountName:        dto.AccountName,
-		Amount:             dto.Amount,
-		TransactionDate:    date,
-		Description:        dto.Description,
-		Pending:            dto.Pending,
-		Excluded:           dto.Excluded,
-		PaymentChannel:     dto.PaymentChannel,
-		CreatedTime:        dto.CreatedTime,
-		LastModifiedTime:   dto.LastModifiedTime,
+		ID:               dto.ID,
+		AccountName:      dto.AccountName,
+		Amount:           dto.Amount,
+		TransactionDate:  date,
+		Description:      dto.Description,
+		Pending:          dto.Pending,
+		CreatedTime:      dto.CreatedTime,
+		LastModifiedTime: dto.LastModifiedTime,
+	}
+
+	if dto.AccountID.Valid {
+		id := int(dto.AccountID.Int64)
+		t.AccountID = &id
 	}
 
 	if dto.MerchantName.Valid {
 		t.MerchantName = types.MerchantName{Value: &dto.MerchantName.String}
-	}
-
-	if dto.PlaidCategoryPrimary.Valid {
-		t.PlaidCategoryPrimary = types.PlaidCategory{Value: &dto.PlaidCategoryPrimary.String}
-	}
-
-	if dto.PlaidCategoryDetailed.Valid {
-		t.PlaidCategoryDetailed = types.PlaidCategory{Value: &dto.PlaidCategoryDetailed.String}
 	}
 
 	if dto.PlanItemID.Valid {

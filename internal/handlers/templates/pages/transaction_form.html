@@ -1,0 +1,279 @@
+{{ define "title" }}
+  {{ if .IsEdit }}Edit Transaction{{ else }}New Transaction{{ end }}
+{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    // Expense/income toggle
+    const expenseBtn = document.getElementById("toggle-expense");
+    const incomeBtn = document.getElementById("toggle-income");
+    const typeInput = document.getElementById("tx-type");
+
+    function setToggle(type) {
+      typeInput.value = type;
+      if (type === "expense") {
+        expenseBtn.classList.add("btn-error");
+        expenseBtn.classList.remove("btn-ghost");
+        incomeBtn.classList.add("btn-ghost");
+        incomeBtn.classList.remove("btn-success");
+      } else {
+        incomeBtn.classList.add("btn-success");
+        incomeBtn.classList.remove("btn-ghost");
+        expenseBtn.classList.add("btn-ghost");
+        expenseBtn.classList.remove("btn-error");
+      }
+    }
+
+    expenseBtn.addEventListener("click", () => setToggle("expense"));
+    incomeBtn.addEventListener("click", () => setToggle("income"));
+
+    // Submit
+    document
+      .getElementById("tx-form")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById("tx-error");
+        errorEl.classList.add("hidden");
+
+        const description = document.getElementById("tx-description").value.trim();
+        const amountRaw = parseFloat(document.getElementById("tx-amount").value);
+        const date = document.getElementById("tx-date").value;
+        const type = typeInput.value;
+        const accountIdRaw = document.getElementById("tx-account").value;
+        const merchantName = document.getElementById("tx-merchant").value.trim() || null;
+        const pending = document.getElementById("tx-pending").checked;
+
+        const amount = type === "income" ? -Math.abs(amountRaw) : Math.abs(amountRaw);
+        const accountId = accountIdRaw ? parseInt(accountIdRaw, 10) : null;
+
+        const isEdit = {{ if .IsEdit }}true{{ else }}false{{ end }};
+        const txId = {{ if .IsEdit }}{{ .Transaction.ID }}{{ else }}0{{ end }};
+
+        const url = isEdit ? `/transactions/${txId}` : "/transactions";
+        const method = isEdit ? "PUT" : "POST";
+
+        try {
+          const resp = await fetch(url, {
+            method,
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              description,
+              amount,
+              date,
+              account_id: accountId,
+              merchant_name: merchantName,
+              pending,
+            }),
+          });
+          if (!resp.ok) throw new Error();
+
+          if (isEdit) {
+            window.location.href = `/transactions/${txId}`;
+          } else {
+            const { id } = await resp.json();
+            window.location.href = `/transactions/${id}`;
+          }
+        } catch {
+          errorEl.classList.remove("hidden");
+        }
+      });
+  </script>
+{{ end }}
+{{ define "page-content" }}
+  <div class="flex flex-col gap-6">
+    {{/* Back link */}}
+    {{ if .IsEdit }}
+      <a
+        href="/transactions/{{ .Transaction.ID }}"
+        class="flex items-center gap-1 text-sm text-base-content/60"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="size-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        Transaction
+      </a>
+    {{ else }}
+      <a
+        href="/transactions"
+        class="flex items-center gap-1 text-sm text-base-content/60"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="size-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        Transactions
+      </a>
+    {{ end }}
+
+
+    <h1 class="text-xl font-bold">
+      {{ if .IsEdit }}Edit Transaction{{ else }}New Transaction{{ end }}
+    </h1>
+
+    <form id="tx-form" class="flex flex-col gap-5">
+      {{/* Expense / Income toggle */}}
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium">Type</label>
+        <input
+          id="tx-type"
+          type="hidden"
+          value="{{ if and .IsEdit .Transaction.IsIncome }}
+            income
+          {{ else }}
+            expense
+          {{ end }}"
+        />
+        <div class="join w-full">
+          <button
+            type="button"
+            id="toggle-expense"
+            class="btn join-item flex-1 {{ if and .IsEdit .Transaction.IsIncome }}
+              btn-ghost
+            {{ else }}
+              btn-error
+            {{ end }}"
+          >
+            Expense
+          </button>
+          <button
+            type="button"
+            id="toggle-income"
+            class="btn join-item flex-1 {{ if and .IsEdit .Transaction.IsIncome }}
+              btn-success
+            {{ else }}
+              btn-ghost
+            {{ end }}"
+          >
+            Income
+          </button>
+        </div>
+      </div>
+
+      {{/* Amount */}}
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="tx-amount">Amount</label>
+        <input
+          id="tx-amount"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          class="input input-bordered"
+          value="{{ if .IsEdit }}
+            {{ printf "%.2f" .Transaction.AbsAmount }}
+          {{ end }}"
+          required
+        />
+      </div>
+
+      {{/* Description */}}
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="tx-description"
+          >Description</label
+        >
+        <input
+          id="tx-description"
+          type="text"
+          placeholder="e.g. Grocery Store"
+          class="input input-bordered"
+          value="{{ if .IsEdit }}{{ .Transaction.Description }}{{ end }}"
+          required
+        />
+      </div>
+
+      {{/* Date */}}
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="tx-date">Date</label>
+        <input
+          id="tx-date"
+          type="date"
+          class="input input-bordered"
+          value="{{ if .IsEdit }}
+            {{ .Transaction.FormattedTransactionDate }}
+          {{ end }}"
+          required
+        />
+      </div>
+
+      {{/* Account */}}
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="tx-account"
+          >Account
+          <span class="text-base-content/40 font-normal"
+            >(optional)</span
+          ></label
+        >
+        <select id="tx-account" class="select select-bordered">
+          <option value="">No account</option>
+          {{ range .Accounts }}
+            <option
+              value="{{ .ID }}"
+              {{ if and $.IsEdit (eq $.Transaction.AccountIDInt .ID) }}
+                selected
+              {{ end }}
+            >
+              {{ .Name }}
+            </option>
+          {{ end }}
+        </select>
+      </div>
+
+      {{/* Merchant name */}}
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="tx-merchant"
+          >Merchant name
+          <span class="text-base-content/40 font-normal"
+            >(optional)</span
+          ></label
+        >
+        <input
+          id="tx-merchant"
+          type="text"
+          placeholder="e.g. Whole Foods"
+          class="input input-bordered"
+          value="{{ if .IsEdit }}{{ .Transaction.MerchantName }}{{ end }}"
+        />
+      </div>
+
+      {{/* Pending */}}
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input
+          id="tx-pending"
+          type="checkbox"
+          class="checkbox"
+          {{ if and .IsEdit .Transaction.Pending }}checked{{ end }}
+        />
+        <span class="text-sm font-medium">Pending</span>
+      </label>
+
+      <p id="tx-error" class="text-error text-sm hidden">
+        Failed to save. Please try again.
+      </p>
+
+      <button type="submit" class="btn btn-primary w-full">
+        {{ if .IsEdit }}Save changes{{ else }}Add transaction{{ end }}
+      </button>
+    </form>
+  </div>
+{{ end }}

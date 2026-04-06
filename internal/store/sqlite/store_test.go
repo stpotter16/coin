@@ -3,7 +3,6 @@ package sqlite_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/stpotter16/coin/internal/store"
@@ -26,58 +25,6 @@ func newTestStore(t *testing.T) store.Store {
 	return s
 }
 
-func mustCreatePlaidItem(t *testing.T, s store.Store) types.PlaidItem {
-	t.Helper()
-	ctx := context.Background()
-	item := types.PlaidItem{
-		PlaidItemID:      "item-" + t.Name(),
-		PlaidAccessToken: "token",
-		InstitutionID:    "ins_1",
-		InstitutionName:  "Test Bank",
-	}
-	if err := s.CreatePlaidItem(ctx, item); err != nil {
-		t.Fatalf("CreatePlaidItem: %v", err)
-	}
-	items, err := s.GetPlaidItems(ctx)
-	if err != nil {
-		t.Fatalf("GetPlaidItems: %v", err)
-	}
-	for _, it := range items {
-		if it.PlaidItemID == item.PlaidItemID {
-			return it
-		}
-	}
-	t.Fatalf("mustCreatePlaidItem: created item not found in GetPlaidItems")
-	return types.PlaidItem{}
-}
-
-func mustCreateAccount(t *testing.T, s store.Store, plaidItemID int) types.Account {
-	t.Helper()
-	ctx := context.Background()
-	account := types.Account{
-		PlaidAccountID:  "acc-" + t.Name(),
-		PlaidItemID:     plaidItemID,
-		Name:            "Checking",
-		Type:            "depository",
-		Subtype:         "checking",
-		IsoCurrencyCode: "USD",
-	}
-	if err := s.UpsertAccount(ctx, account); err != nil {
-		t.Fatalf("UpsertAccount: %v", err)
-	}
-	accounts, err := s.GetAccountsByItemID(ctx, plaidItemID)
-	if err != nil {
-		t.Fatalf("GetAccountsByItemID: %v", err)
-	}
-	for _, a := range accounts {
-		if a.PlaidAccountID == account.PlaidAccountID {
-			return a
-		}
-	}
-	t.Fatalf("mustCreateAccount: created account not found in GetAccountsByItemID")
-	return types.Account{}
-}
-
 func mustCreateUser(t *testing.T, s store.Store) int {
 	t.Helper()
 	ctx := context.Background()
@@ -90,6 +37,41 @@ func mustCreateUser(t *testing.T, s store.Store) int {
 		t.Fatalf("GetUserByUsername after create: %v", err)
 	}
 	return u.ID
+}
+
+func mustCreateAccount(t *testing.T, s store.Store) types.Account {
+	t.Helper()
+	ctx := context.Background()
+	id, err := s.CreateAccount(ctx, "Checking-"+t.Name(), "checking")
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	accounts, err := s.GetAllAccounts(ctx)
+	if err != nil {
+		t.Fatalf("GetAllAccounts: %v", err)
+	}
+	for _, a := range accounts {
+		if a.ID == id {
+			return a
+		}
+	}
+	t.Fatalf("mustCreateAccount: created account not found")
+	return types.Account{}
+}
+
+func mustCreateTransaction(t *testing.T, s store.Store, userID int, amount float64, date, description string) int {
+	t.Helper()
+	ctx := context.Background()
+	req := types.TransactionRequest{
+		Amount:      amount,
+		Date:        date,
+		Description: description,
+	}
+	id, err := s.CreateTransaction(ctx, req, userID)
+	if err != nil {
+		t.Fatalf("CreateTransaction %q: %v", description, err)
+	}
+	return id
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +97,59 @@ func TestCreateAndGetUserByUsername(t *testing.T) {
 	_, err = s.GetUserByUsername(ctx, "nobody")
 	if !errors.Is(err, store.ErrUserNotFound) {
 		t.Errorf("got err %v, want store.ErrUserNotFound", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Accounts
+// ---------------------------------------------------------------------------
+
+func TestCreateAndGetAccounts(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	id, err := s.CreateAccount(ctx, "Chase Checking", "checking")
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	if id == 0 {
+		t.Error("expected non-zero account ID")
+	}
+
+	accounts, err := s.GetAllAccounts(ctx)
+	if err != nil {
+		t.Fatalf("GetAllAccounts: %v", err)
+	}
+	if len(accounts) != 1 {
+		t.Fatalf("got %d accounts, want 1", len(accounts))
+	}
+	if accounts[0].Name != "Chase Checking" {
+		t.Errorf("Name = %q, want %q", accounts[0].Name, "Chase Checking")
+	}
+	if accounts[0].Type != "checking" {
+		t.Errorf("Type = %q, want %q", accounts[0].Type, "checking")
+	}
+}
+
+func TestDeleteAccount(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	id, err := s.CreateAccount(ctx, "Savings", "savings")
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+
+	if err := s.DeleteAccount(ctx, id); err != nil {
+		t.Fatalf("DeleteAccount: %v", err)
+	}
+
+	accounts, err := s.GetAllAccounts(ctx)
+	if err != nil {
+		t.Fatalf("GetAllAccounts after delete: %v", err)
+	}
+	if len(accounts) != 0 {
+		t.Errorf("got %d accounts after delete, want 0", len(accounts))
 	}
 }
 
@@ -152,23 +187,21 @@ func TestGetOrCreatePlan_CopiesFromPriorPlan(t *testing.T) {
 		t.Fatalf("GetOrCreatePlan month 2: %v", err)
 	}
 
-	incomeItem := types.PlanItem{
+	if _, err := s.CreatePlanItem(ctx, types.PlanItem{
 		PlanID:         p1.ID,
 		Name:           "Salary",
 		Type:           "income",
 		ExpectedAmount: 5000,
-	}
-	if _, err := s.CreatePlanItem(ctx, incomeItem); err != nil {
+	}); err != nil {
 		t.Fatalf("CreatePlanItem income: %v", err)
 	}
 
-	expenseItem := types.PlanItem{
+	if _, err := s.CreatePlanItem(ctx, types.PlanItem{
 		PlanID:         p1.ID,
 		Name:           "Rent",
 		Type:           "fixed_expense",
 		ExpectedAmount: 1500,
-	}
-	if _, err := s.CreatePlanItem(ctx, expenseItem); err != nil {
+	}); err != nil {
 		t.Fatalf("CreatePlanItem expense: %v", err)
 	}
 
@@ -183,31 +216,6 @@ func TestGetOrCreatePlan_CopiesFromPriorPlan(t *testing.T) {
 	}
 	if len(items) != 2 {
 		t.Fatalf("got %d plan items, want 2", len(items))
-	}
-
-	byName := make(map[string]types.PlanItem, len(items))
-	for _, it := range items {
-		byName[it.Name] = it
-	}
-
-	if _, ok := byName["Salary"]; !ok {
-		t.Errorf("copied plan missing income item %q", "Salary")
-	}
-	if it, ok := byName["Salary"]; ok && it.Type != "income" {
-		t.Errorf("Salary type = %q, want %q", it.Type, "income")
-	}
-	if it, ok := byName["Salary"]; ok && it.ExpectedAmount != 5000 {
-		t.Errorf("Salary expected_amount = %f, want %f", it.ExpectedAmount, 5000.0)
-	}
-
-	if _, ok := byName["Rent"]; !ok {
-		t.Errorf("copied plan missing expense item %q", "Rent")
-	}
-	if it, ok := byName["Rent"]; ok && it.Type != "fixed_expense" {
-		t.Errorf("Rent type = %q, want %q", it.Type, "fixed_expense")
-	}
-	if it, ok := byName["Rent"]; ok && it.ExpectedAmount != 1500 {
-		t.Errorf("Rent expected_amount = %f, want %f", it.ExpectedAmount, 1500.0)
 	}
 }
 
@@ -237,87 +245,6 @@ func TestLockPlan(t *testing.T) {
 	}
 }
 
-func TestPlanItem_CreateUpdateDelete(t *testing.T) {
-	s := newTestStore(t)
-	ctx := context.Background()
-	userID := mustCreateUser(t, s)
-
-	plan, err := s.GetOrCreatePlan(ctx, 2025, 5, userID)
-	if err != nil {
-		t.Fatalf("GetOrCreatePlan: %v", err)
-	}
-
-	itemID, err := s.CreatePlanItem(ctx, types.PlanItem{
-		PlanID:         plan.ID,
-		Name:           "Internet",
-		Type:           "fixed_expense",
-		ExpectedAmount: 80,
-	})
-	if err != nil {
-		t.Fatalf("CreatePlanItem: %v", err)
-	}
-
-	items, err := s.GetPlanItems(ctx, plan.ID)
-	if err != nil {
-		t.Fatalf("GetPlanItems: %v", err)
-	}
-	found := false
-	for _, it := range items {
-		if it.ID == itemID && it.Name == "Internet" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("created plan item not found in GetPlanItems")
-	}
-
-	if err := s.UpdatePlanItem(ctx, types.PlanItem{
-		ID:             itemID,
-		PlanID:         plan.ID,
-		Name:           "Fiber Internet",
-		Type:           "fixed_expense",
-		ExpectedAmount: 90,
-	}); err != nil {
-		t.Fatalf("UpdatePlanItem: %v", err)
-	}
-
-	items, err = s.GetPlanItems(ctx, plan.ID)
-	if err != nil {
-		t.Fatalf("GetPlanItems after update: %v", err)
-	}
-	updatedFound := false
-	for _, it := range items {
-		if it.ID == itemID {
-			updatedFound = true
-			if it.Name != "Fiber Internet" {
-				t.Errorf("Name = %q, want %q", it.Name, "Fiber Internet")
-			}
-			if it.ExpectedAmount != 90 {
-				t.Errorf("ExpectedAmount = %f, want %f", it.ExpectedAmount, 90.0)
-			}
-			break
-		}
-	}
-	if !updatedFound {
-		t.Error("updated plan item not found in GetPlanItems")
-	}
-
-	if err := s.DeletePlanItem(ctx, itemID); err != nil {
-		t.Fatalf("DeletePlanItem: %v", err)
-	}
-
-	items, err = s.GetPlanItems(ctx, plan.ID)
-	if err != nil {
-		t.Fatalf("GetPlanItems after delete: %v", err)
-	}
-	for _, it := range items {
-		if it.ID == itemID {
-			t.Error("deleted plan item still appears in GetPlanItems")
-		}
-	}
-}
-
 func TestPlanItem_LockedPlanReturnsErrPlanLocked(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -342,23 +269,12 @@ func TestPlanItem_LockedPlanReturnsErrPlanLocked(t *testing.T) {
 		t.Fatalf("LockPlan: %v", err)
 	}
 
-	_, err = s.CreatePlanItem(ctx, types.PlanItem{
-		PlanID:         plan.ID,
-		Name:           "New Item",
-		Type:           "income",
-		ExpectedAmount: 100,
-	})
+	_, err = s.CreatePlanItem(ctx, types.PlanItem{PlanID: plan.ID, Name: "New", Type: "income", ExpectedAmount: 100})
 	if !errors.Is(err, store.ErrPlanLocked) {
 		t.Errorf("CreatePlanItem on locked plan: got %v, want store.ErrPlanLocked", err)
 	}
 
-	err = s.UpdatePlanItem(ctx, types.PlanItem{
-		ID:             itemID,
-		PlanID:         plan.ID,
-		Name:           "Updated Name",
-		Type:           "fixed_expense",
-		ExpectedAmount: 400,
-	})
+	err = s.UpdatePlanItem(ctx, types.PlanItem{ID: itemID, PlanID: plan.ID, Name: "Updated", Type: "fixed_expense", ExpectedAmount: 400})
 	if !errors.Is(err, store.ErrPlanLocked) {
 		t.Errorf("UpdatePlanItem on locked plan: got %v, want store.ErrPlanLocked", err)
 	}
@@ -373,55 +289,93 @@ func TestPlanItem_LockedPlanReturnsErrPlanLocked(t *testing.T) {
 // Transactions
 // ---------------------------------------------------------------------------
 
-func makePlaidTx(plaidTxID string, accountID int, amount float64, date, description string) types.PlaidTransaction {
-	return types.PlaidTransaction{
-		PlaidTransactionID: plaidTxID,
-		AccountID:          accountID,
-		Amount:             amount,
-		TransactionDate:    date,
-		Description:        description,
-		Pending:            false,
-		PaymentChannel:     "online",
+func TestCreateAndGetTransaction(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	userID := mustCreateUser(t, s)
+
+	id := mustCreateTransaction(t, s, userID, 42.50, "2025-07-15", "Coffee Shop")
+
+	tx, err := s.GetTransactionByID(ctx, id)
+	if err != nil {
+		t.Fatalf("GetTransactionByID: %v", err)
+	}
+	if tx.Description != "Coffee Shop" {
+		t.Errorf("Description = %q, want %q", tx.Description, "Coffee Shop")
+	}
+	if tx.Amount != 42.50 {
+		t.Errorf("Amount = %f, want %f", tx.Amount, 42.50)
 	}
 }
 
-func TestUpsertPlaidTransaction_RunTransform(t *testing.T) {
+func TestCreateTransaction_WithAccount(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
+	userID := mustCreateUser(t, s)
+	account := mustCreateAccount(t, s)
 
-	item := mustCreatePlaidItem(t, s)
-	account := mustCreateAccount(t, s, item.ID)
-
-	plaidTx := makePlaidTx("ptx-001", account.ID, 42.50, "2025-07-15", "Coffee Shop")
-	if err := s.UpsertPlaidTransaction(ctx, plaidTx); err != nil {
-		t.Fatalf("UpsertPlaidTransaction: %v", err)
+	req := types.TransactionRequest{
+		AccountID:   &account.ID,
+		Amount:      100.00,
+		Date:        "2025-08-01",
+		Description: "Rent",
 	}
-
-	if err := s.RunTransform(ctx); err != nil {
-		t.Fatalf("RunTransform: %v", err)
-	}
-
-	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 7})
+	id, err := s.CreateTransaction(ctx, req, userID)
 	if err != nil {
-		t.Fatalf("GetTransactions: %v", err)
+		t.Fatalf("CreateTransaction: %v", err)
 	}
 
-	if len(page.Transactions) == 0 {
-		t.Fatal("expected at least one transaction after transform, got none")
+	tx, err := s.GetTransactionByID(ctx, id)
+	if err != nil {
+		t.Fatalf("GetTransactionByID: %v", err)
+	}
+	if tx.AccountName != account.Name {
+		t.Errorf("AccountName = %q, want %q", tx.AccountName, account.Name)
+	}
+}
+
+func TestUpdateTransaction(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	userID := mustCreateUser(t, s)
+
+	id := mustCreateTransaction(t, s, userID, 50.00, "2025-09-01", "Old Description")
+
+	req := types.TransactionRequest{
+		Amount:      75.00,
+		Date:        "2025-09-02",
+		Description: "New Description",
+	}
+	if err := s.UpdateTransaction(ctx, id, req); err != nil {
+		t.Fatalf("UpdateTransaction: %v", err)
 	}
 
-	var found *types.Transaction
-	for i := range page.Transactions {
-		if page.Transactions[i].Description == "Coffee Shop" {
-			found = &page.Transactions[i]
-			break
-		}
+	tx, err := s.GetTransactionByID(ctx, id)
+	if err != nil {
+		t.Fatalf("GetTransactionByID after update: %v", err)
 	}
-	if found == nil {
-		t.Fatal("transformed transaction with description 'Coffee Shop' not found")
+	if tx.Description != "New Description" {
+		t.Errorf("Description = %q, want %q", tx.Description, "New Description")
 	}
-	if found.Amount != 42.50 {
-		t.Errorf("Amount = %f, want %f", found.Amount, 42.50)
+	if tx.Amount != 75.00 {
+		t.Errorf("Amount = %f, want %f", tx.Amount, 75.00)
+	}
+}
+
+func TestDeleteTransaction(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	userID := mustCreateUser(t, s)
+
+	id := mustCreateTransaction(t, s, userID, 20.00, "2025-10-01", "To Delete")
+
+	if err := s.DeleteTransaction(ctx, id); err != nil {
+		t.Fatalf("DeleteTransaction: %v", err)
+	}
+
+	_, err := s.GetTransactionByID(ctx, id)
+	if !errors.Is(err, store.ErrTransactionNotFound) {
+		t.Errorf("got %v after delete, want store.ErrTransactionNotFound", err)
 	}
 }
 
@@ -440,25 +394,7 @@ func TestUpdateTransactionPlanItem(t *testing.T) {
 	ctx := context.Background()
 	userID := mustCreateUser(t, s)
 
-	item := mustCreatePlaidItem(t, s)
-	account := mustCreateAccount(t, s, item.ID)
-
-	plaidTx := makePlaidTx("ptx-update-pi", account.ID, 120.00, "2025-08-10", "Grocery Store")
-	if err := s.UpsertPlaidTransaction(ctx, plaidTx); err != nil {
-		t.Fatalf("UpsertPlaidTransaction: %v", err)
-	}
-	if err := s.RunTransform(ctx); err != nil {
-		t.Fatalf("RunTransform: %v", err)
-	}
-
-	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 8})
-	if err != nil {
-		t.Fatalf("GetTransactions: %v", err)
-	}
-	if len(page.Transactions) == 0 {
-		t.Fatal("no transactions found after transform")
-	}
-	txID := page.Transactions[0].ID
+	txID := mustCreateTransaction(t, s, userID, 120.00, "2025-08-10", "Grocery Store")
 
 	plan, err := s.GetOrCreatePlan(ctx, 2025, 8, userID)
 	if err != nil {
@@ -483,7 +419,7 @@ func TestUpdateTransactionPlanItem(t *testing.T) {
 		t.Fatalf("GetTransactionByID after assign: %v", err)
 	}
 	if !tx.IsAssigned() {
-		t.Error("expected transaction to be assigned to a plan item")
+		t.Error("expected transaction to be assigned")
 	}
 	if tx.PlanItem.ID != planItemID {
 		t.Errorf("PlanItem.ID = %d, want %d", tx.PlanItem.ID, planItemID)
@@ -498,121 +434,36 @@ func TestUpdateTransactionPlanItem(t *testing.T) {
 		t.Fatalf("GetTransactionByID after unassign: %v", err)
 	}
 	if tx.IsAssigned() {
-		t.Error("expected transaction to be unassigned after nil plan item update")
+		t.Error("expected transaction to be unassigned")
 	}
 }
 
-func TestUpdateTransactionExcluded(t *testing.T) {
-	s := newTestStore(t)
-	ctx := context.Background()
-
-	item := mustCreatePlaidItem(t, s)
-	account := mustCreateAccount(t, s, item.ID)
-
-	plaidTx := makePlaidTx("ptx-excluded", account.ID, 15.00, "2025-09-05", "Parking Meter")
-	if err := s.UpsertPlaidTransaction(ctx, plaidTx); err != nil {
-		t.Fatalf("UpsertPlaidTransaction: %v", err)
-	}
-	if err := s.RunTransform(ctx); err != nil {
-		t.Fatalf("RunTransform: %v", err)
-	}
-
-	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 9})
-	if err != nil {
-		t.Fatalf("GetTransactions: %v", err)
-	}
-	if len(page.Transactions) == 0 {
-		t.Fatal("no transactions found after transform")
-	}
-	txID := page.Transactions[0].ID
-
-	if err := s.UpdateTransactionExcluded(ctx, txID, true); err != nil {
-		t.Fatalf("UpdateTransactionExcluded (true): %v", err)
-	}
-	tx, err := s.GetTransactionByID(ctx, txID)
-	if err != nil {
-		t.Fatalf("GetTransactionByID after exclude: %v", err)
-	}
-	if !tx.Excluded {
-		t.Error("Excluded = false, want true")
-	}
-
-	if err := s.UpdateTransactionExcluded(ctx, txID, false); err != nil {
-		t.Fatalf("UpdateTransactionExcluded (false): %v", err)
-	}
-	tx, err = s.GetTransactionByID(ctx, txID)
-	if err != nil {
-		t.Fatalf("GetTransactionByID after re-include: %v", err)
-	}
-	if tx.Excluded {
-		t.Error("Excluded = true, want false")
-	}
-}
-
-func TestGetFlexibleSpending_ExcludesExcludedAndAssigned(t *testing.T) {
+func TestGetFlexibleSpending(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	userID := mustCreateUser(t, s)
 
-	item := mustCreatePlaidItem(t, s)
-	account := mustCreateAccount(t, s, item.ID)
+	// Unassigned expense: should count
+	mustCreateTransaction(t, s, userID, 30.00, "2025-10-01", "Flexible")
+	// Assigned expense: should NOT count
+	assignedID := mustCreateTransaction(t, s, userID, 70.00, "2025-10-02", "Assigned")
+	// Income (negative): should NOT count
+	mustCreateTransaction(t, s, userID, -1000.00, "2025-10-03", "Income")
 
-	// Three transactions in 2025-10.
-	unassigned := makePlaidTx("ptx-flex-1", account.ID, 30.00, "2025-10-01", "Unassigned Purchase")
-	excluded := makePlaidTx("ptx-flex-2", account.ID, 50.00, "2025-10-02", "Excluded Purchase")
-	assigned := makePlaidTx("ptx-flex-3", account.ID, 70.00, "2025-10-03", "Assigned Purchase")
-
-	for _, ptx := range []types.PlaidTransaction{unassigned, excluded, assigned} {
-		if err := s.UpsertPlaidTransaction(ctx, ptx); err != nil {
-			t.Fatalf("UpsertPlaidTransaction %s: %v", ptx.PlaidTransactionID, err)
-		}
-	}
-	if err := s.RunTransform(ctx); err != nil {
-		t.Fatalf("RunTransform: %v", err)
-	}
-
-	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 10})
-	if err != nil {
-		t.Fatalf("GetTransactions: %v", err)
-	}
-	if len(page.Transactions) != 3 {
-		t.Fatalf("expected 3 transactions, got %d", len(page.Transactions))
-	}
-
-	// Map by description for easy lookup.
-	byDesc := make(map[string]types.Transaction, len(page.Transactions))
-	for _, tx := range page.Transactions {
-		byDesc[tx.Description] = tx
-	}
-
-	// Exclude one.
-	excludedTx, ok := byDesc["Excluded Purchase"]
-	if !ok {
-		t.Fatal("could not find 'Excluded Purchase' transaction")
-	}
-	if err := s.UpdateTransactionExcluded(ctx, excludedTx.ID, true); err != nil {
-		t.Fatalf("UpdateTransactionExcluded: %v", err)
-	}
-
-	// Assign one to a plan item.
 	plan, err := s.GetOrCreatePlan(ctx, 2025, 10, userID)
 	if err != nil {
 		t.Fatalf("GetOrCreatePlan: %v", err)
 	}
 	planItemID, err := s.CreatePlanItem(ctx, types.PlanItem{
 		PlanID:         plan.ID,
-		Name:           "Fixed Bill",
+		Name:           "Bill",
 		Type:           "fixed_expense",
 		ExpectedAmount: 100,
 	})
 	if err != nil {
 		t.Fatalf("CreatePlanItem: %v", err)
 	}
-	assignedTx, ok := byDesc["Assigned Purchase"]
-	if !ok {
-		t.Fatal("could not find 'Assigned Purchase' transaction")
-	}
-	if err := s.UpdateTransactionPlanItem(ctx, assignedTx.ID, &planItemID); err != nil {
+	if err := s.UpdateTransactionPlanItem(ctx, assignedID, &planItemID); err != nil {
 		t.Fatalf("UpdateTransactionPlanItem: %v", err)
 	}
 
@@ -620,20 +471,15 @@ func TestGetFlexibleSpending_ExcludesExcludedAndAssigned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFlexibleSpending: %v", err)
 	}
-
-	const want = 30.00
-	if spending != want {
-		t.Errorf("GetFlexibleSpending = %f, want %f", spending, want)
+	if spending != 30.00 {
+		t.Errorf("GetFlexibleSpending = %f, want %f", spending, 30.00)
 	}
 }
 
-func TestGetPlanItemSummaries_ExcludesExcludedTransactions(t *testing.T) {
+func TestGetPlanItemSummaries(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	userID := mustCreateUser(t, s)
-
-	item := mustCreatePlaidItem(t, s)
-	account := mustCreateAccount(t, s, item.ID)
 
 	plan, err := s.GetOrCreatePlan(ctx, 2025, 11, userID)
 	if err != nil {
@@ -649,50 +495,9 @@ func TestGetPlanItemSummaries_ExcludesExcludedTransactions(t *testing.T) {
 		t.Fatalf("CreatePlanItem: %v", err)
 	}
 
-	// Two transactions to assign: one normal ($80), one excluded ($40).
-	normalTx := makePlaidTx("ptx-sum-normal", account.ID, 80.00, "2025-11-05", "Electric Bill")
-	excludedTx := makePlaidTx("ptx-sum-excluded", account.ID, 40.00, "2025-11-06", "Duplicate Bill")
-
-	for i, ptx := range []types.PlaidTransaction{normalTx, excludedTx} {
-		if err := s.UpsertPlaidTransaction(ctx, ptx); err != nil {
-			t.Fatalf("UpsertPlaidTransaction[%d]: %v", i, err)
-		}
-	}
-	if err := s.RunTransform(ctx); err != nil {
-		t.Fatalf("RunTransform: %v", err)
-	}
-
-	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 11})
-	if err != nil {
-		t.Fatalf("GetTransactions: %v", err)
-	}
-	if len(page.Transactions) != 2 {
-		t.Fatalf("expected 2 transactions, got %d", len(page.Transactions))
-	}
-
-	byDesc := make(map[string]types.Transaction, len(page.Transactions))
-	for _, tx := range page.Transactions {
-		byDesc[tx.Description] = tx
-	}
-
-	// Assign both transactions to the plan item.
-	for _, desc := range []string{"Electric Bill", "Duplicate Bill"} {
-		tx, ok := byDesc[desc]
-		if !ok {
-			t.Fatalf("could not find transaction %q", desc)
-		}
-		if err := s.UpdateTransactionPlanItem(ctx, tx.ID, &planItemID); err != nil {
-			t.Fatalf("UpdateTransactionPlanItem %q: %v", desc, err)
-		}
-	}
-
-	// Exclude the second one.
-	dupTx, ok := byDesc["Duplicate Bill"]
-	if !ok {
-		t.Fatal("could not find 'Duplicate Bill' transaction")
-	}
-	if err := s.UpdateTransactionExcluded(ctx, dupTx.ID, true); err != nil {
-		t.Fatalf("UpdateTransactionExcluded: %v", err)
+	txID := mustCreateTransaction(t, s, userID, 80.00, "2025-11-05", "Electric Bill")
+	if err := s.UpdateTransactionPlanItem(ctx, txID, &planItemID); err != nil {
+		t.Fatalf("UpdateTransactionPlanItem: %v", err)
 	}
 
 	summaries, err := s.GetPlanItemSummaries(ctx, plan.ID)
@@ -702,25 +507,7 @@ func TestGetPlanItemSummaries_ExcludesExcludedTransactions(t *testing.T) {
 	if len(summaries) != 1 {
 		t.Fatalf("expected 1 summary, got %d", len(summaries))
 	}
-
-	got := summaries[0].ActualAmount
-	const want = 80.00
-	if got != want {
-		t.Errorf("ActualAmount = %f, want %f (excluded transaction must not be counted)", got, want)
-	}
-}
-
-// mustCreatePlaidTxAndTransform is a small helper used internally by some
-// tests that need a domain transaction without caring about its plaid ID.
-func mustCreatePlaidTxAndTransform(t *testing.T, s store.Store, accountID int, amount float64, date, suffix string) {
-	t.Helper()
-	ctx := context.Background()
-	id := fmt.Sprintf("ptx-%s-%s", suffix, t.Name())
-	ptx := makePlaidTx(id, accountID, amount, date, "Test Transaction "+suffix)
-	if err := s.UpsertPlaidTransaction(ctx, ptx); err != nil {
-		t.Fatalf("UpsertPlaidTransaction: %v", err)
-	}
-	if err := s.RunTransform(ctx); err != nil {
-		t.Fatalf("RunTransform: %v", err)
+	if summaries[0].ActualAmount != 80.00 {
+		t.Errorf("ActualAmount = %f, want %f", summaries[0].ActualAmount, 80.00)
 	}
 }

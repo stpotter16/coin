@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -16,10 +14,8 @@ import (
 	"github.com/stpotter16/coin/internal/handlers"
 	"github.com/stpotter16/coin/internal/handlers/authentication"
 	"github.com/stpotter16/coin/internal/handlers/sessions"
-	"github.com/stpotter16/coin/internal/plaidclient"
 	"github.com/stpotter16/coin/internal/store/db"
 	"github.com/stpotter16/coin/internal/store/sqlite"
-	"github.com/stpotter16/coin/internal/sync"
 )
 
 func run(
@@ -36,13 +32,7 @@ func run(
 
 	dbPath := getenv("COIN_DB_PATH")
 	if dbPath == "" {
-		return errors.New("database environment variable not set")
-	}
-	flag.Parse()
-
-	encryptionKey, err := loadEncryptionKey(getenv)
-	if err != nil {
-		return err
+		return errors.New("COIN_DB_PATH environment variable not set")
 	}
 
 	log.Printf("Opening database in %v", dbPath)
@@ -63,16 +53,7 @@ func run(
 
 	authenticator := authentication.New(store)
 
-	plaidClient, err := plaidclient.New(getenv)
-	if err != nil {
-		return err
-	}
-
-	syncer := sync.New(store, plaidClient, encryptionKey)
-
-	go startSyncPoller(ctx, syncer)
-
-	handler := handlers.NewServer(store, sessionManager, authenticator, plaidClient, syncer, encryptionKey)
+	handler := handlers.NewServer(store, sessionManager, authenticator)
 	port := getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -98,38 +79,6 @@ func run(
 		return fmt.Errorf("server shutdown error: %w", err)
 	}
 	return nil
-}
-
-func loadEncryptionKey(getenv func(string) string) ([]byte, error) {
-	encoded := getenv("COIN_ENCRYPTION_KEY")
-	if encoded == "" {
-		return nil, errors.New("COIN_ENCRYPTION_KEY environment variable not set")
-	}
-	key, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("COIN_ENCRYPTION_KEY is not valid base64: %w", err)
-	}
-	if len(key) != 32 {
-		return nil, fmt.Errorf("COIN_ENCRYPTION_KEY must be 32 bytes, got %d", len(key))
-	}
-	return key, nil
-}
-
-func startSyncPoller(ctx context.Context, syncer sync.Syncer) {
-	ticker := time.NewTicker(time.Hour)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			log.Println("sync: starting scheduled sync")
-			if err := syncer.SyncAll(ctx); err != nil {
-				log.Printf("sync: scheduled sync failed: %v", err)
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
 }
 
 func main() {

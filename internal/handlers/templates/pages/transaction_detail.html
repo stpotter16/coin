@@ -1,29 +1,6 @@
 {{ define "title" }}Transaction{{ end }}
 {{ define "script-tags" }}
-  <script type="module" nonce="{{ .CspNonce }}">
-    document
-      .getElementById("exclude-btn")
-      ?.addEventListener("click", async () => {
-        const btn = document.getElementById("exclude-btn");
-        const excluded = btn.dataset.excluded === "true";
-        btn.disabled = true;
-        try {
-          const resp = await fetch(
-            "/transactions/{{ .Transaction.ID }}/excluded",
-            {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ excluded: !excluded }),
-            },
-          );
-          if (!resp.ok) throw new Error();
-          window.location.reload();
-        } catch {
-          btn.disabled = false;
-        }
-      });
-  </script> {{ if .PlanItems }}
+  {{ if .PlanItems }}
     <script type="module" nonce="{{ .CspNonce }}">
       document
         .getElementById("plan-item-save-btn")
@@ -54,6 +31,23 @@
         });
     </script>
   {{ end }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    document
+      .getElementById("delete-btn")
+      ?.addEventListener("click", async () => {
+        if (!confirm("Delete this transaction?")) return;
+        try {
+          const resp = await fetch("/transactions/{{ .Transaction.ID }}", {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!resp.ok) throw new Error();
+          window.location.href = "/transactions";
+        } catch {
+          alert("Failed to delete transaction. Please try again.");
+        }
+      });
+  </script>
 {{ end }}
 {{ define "page-content" }}
   <div class="flex flex-col gap-6">
@@ -116,40 +110,7 @@
           <span class="text-sm text-base-content/60">Date</span>
           <span class="text-sm">{{ .Transaction.FormattedDate }}</span>
         </div>
-        <div class="flex justify-between">
-          <span class="text-sm text-base-content/60">Payment channel</span>
-          <span class="text-sm capitalize"
-            >{{ .Transaction.PaymentChannel }}</span
-          >
-        </div>
-        {{ if .Transaction.PlaidCategoryPrimary.Valid }}
-          <div class="flex justify-between">
-            <span class="text-sm text-base-content/60">Category</span>
-            <span class="text-sm">{{ .Transaction.PlaidCategoryPrimary }}</span>
-          </div>
-        {{ end }}
       </div>
-    </div>
-
-    {{/* Exclude toggle */}}
-    <div>
-      {{ if .Transaction.Excluded }}
-        <button
-          id="exclude-btn"
-          data-excluded="true"
-          class="btn btn-outline btn-sm w-full"
-        >
-          Include in totals
-        </button>
-      {{ else }}
-        <button
-          id="exclude-btn"
-          data-excluded="false"
-          class="btn btn-outline btn-warning btn-sm w-full"
-        >
-          Exclude from totals
-        </button>
-      {{ end }}
     </div>
 
     {{/* Plan item assignment */}}
@@ -186,5 +147,18 @@
         No plan for this month — create one to assign transactions.
       </p>
     {{ end }}
+
+    {{/* Edit / Delete actions */}}
+    <div class="flex gap-2">
+      <a
+        href="/transactions/{{ .Transaction.ID }}/edit"
+        class="btn btn-outline btn-sm flex-1"
+      >
+        Edit
+      </a>
+      <button id="delete-btn" class="btn btn-outline btn-error btn-sm flex-1">
+        Delete
+      </button>
+    </div>
   </div>
 {{ end }}

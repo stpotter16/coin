@@ -75,14 +75,14 @@ All mutations use `fetch` calls in nonce-gated `<script type="module" nonce="{{ 
 
 ## Key Files
 
-| File                          | Purpose                                         |
-| ----------------------------- | ----------------------------------------------- |
-| `internal/handlers/views.go`  | All view handlers + `viewProps` struct          |
-| `internal/handlers/routes.go` | All routes                                      |
-| `internal/handlers/server.go` | `NewServer` constructor                         |
-| `internal/store/store.go`     | `Store` interface + sentinel errors             |
+| File                          | Purpose                                                 |
+| ----------------------------- | ------------------------------------------------------- |
+| `internal/handlers/views.go`  | All view handlers + `viewProps` struct                  |
+| `internal/handlers/routes.go` | All routes                                              |
+| `internal/handlers/server.go` | `NewServer` constructor                                 |
+| `internal/store/store.go`     | `Store` interface + sentinel errors                     |
 | `internal/store/db/db.go`     | SQLite connection setup, PRAGMAs (FK enforcement is ON) |
-| `PLAN.md`                     | Schema reference, UI status, backlog            |
+| `PLAN.md`                     | Schema reference, UI status, backlog                    |
 
 ## Environment Variables
 
