@@ -103,17 +103,17 @@ Mobile-first. Navigation via a bottom dock (DaisyUI `dock` component) with five 
 
 ### Implementation Status
 
-| Page                     | Status      |
-| ------------------------ | ----------- |
-| Login                    | ✅ Done     |
-| Dashboard                | ✅ Done     |
-| Plan management          | ✅ Done     |
-| Accounts                 | ⬜ Rework   |
-| Transaction list         | ⬜ Rework   |
-| Transaction detail       | ⬜ Rework   |
-| New transaction form     | ⬜ Not done |
-| Edit transaction form    | ⬜ Not done |
-| Settings                 | ⬜ Rework   |
+| Page                  | Status      |
+| --------------------- | ----------- |
+| Login                 | ✅ Done     |
+| Dashboard             | ✅ Done     |
+| Plan management       | ✅ Done     |
+| Accounts              | ⬜ Rework   |
+| Transaction list      | ⬜ Rework   |
+| Transaction detail    | ⬜ Rework   |
+| New transaction form  | ⬜ Not done |
+| Edit transaction form | ⬜ Not done |
+| Settings              | ⬜ Rework   |
 
 ### Dashboard
 
@@ -168,6 +168,7 @@ Full transaction list with filtering.
 ### New / Edit Transaction Form
 
 Fields:
+
 - Description (required)
 - Amount (required) — always entered as a positive number; sign is determined by the expense/income toggle
 - Date (required)

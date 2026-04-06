@@ -17,29 +17,19 @@ type Store interface {
 	GetUserByUsername(ctx context.Context, username string) (types.User, error)
 	CreateUser(ctx context.Context, username, passwordHash string, isAdmin bool) error
 
-	// Plaid items
-	CreatePlaidItem(ctx context.Context, item types.PlaidItem) error
-	GetPlaidItems(ctx context.Context) ([]types.PlaidItem, error)
-	UpdatePlaidItemCursor(ctx context.Context, id int, cursor string) error
-
 	// Accounts
-	UpsertAccount(ctx context.Context, account types.Account) error
-	GetAccountsByItemID(ctx context.Context, plaidItemID int) ([]types.Account, error)
 	GetAllAccounts(ctx context.Context) ([]types.Account, error)
-
-	// Plaid transactions (raw cache)
-	UpsertPlaidTransaction(ctx context.Context, tx types.PlaidTransaction) error
-	DeletePlaidTransaction(ctx context.Context, plaidTransactionID string) error
+	CreateAccount(ctx context.Context, name, accountType string) (int, error)
+	DeleteAccount(ctx context.Context, id int) error
 
 	// Transactions (domain)
 	GetTransactions(ctx context.Context, filter types.TransactionFilter) (types.TransactionPage, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
+	CreateTransaction(ctx context.Context, req types.TransactionRequest, userID int) (int, error)
+	UpdateTransaction(ctx context.Context, id int, req types.TransactionRequest) error
+	DeleteTransaction(ctx context.Context, id int) error
 	UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error
-	UpdateTransactionExcluded(ctx context.Context, transactionID int, excluded bool) error
 	GetFlexibleSpending(ctx context.Context, year, month int) (float64, error)
-
-	// Transform
-	RunTransform(ctx context.Context) error
 
 	// Plans
 	GetOrCreatePlan(ctx context.Context, year, month, userID int) (types.Plan, error)

@@ -86,9 +86,9 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 			return
 		}
 
-		items, err := s.GetPlaidItems(r.Context())
+		accounts, err := s.GetAllAccounts(r.Context())
 		if err != nil {
-			log.Printf("indexGet: failed to load plaid items: %v", err)
+			log.Printf("indexGet: failed to load accounts: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -134,7 +134,7 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 			Summary     types.DashboardSummary
 		}{
 			viewProps:   viewProps{CspNonce: nonce, ActivePage: "dashboard"},
-			HasAccounts: len(items) > 0,
+			HasAccounts: len(accounts) > 0,
 			Summary:     summary,
 		}
 
@@ -145,7 +145,7 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 	}
 }
 
-func transactionsGet(store store.Store) http.HandlerFunc {
+func transactionsGet(s store.Store) http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -162,7 +162,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			return
 		}
 
-		// Parse month param (YYYY-MM), default to current month.
 		now := time.Now()
 		year, month := now.Year(), int(now.Month())
 		if m := r.URL.Query().Get("month"); m != "" {
@@ -171,7 +170,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			}
 		}
 
-		// Parse optional account_id param.
 		var accountID *int
 		if a := r.URL.Query().Get("account_id"); a != "" {
 			if id, err := strconv.Atoi(a); err == nil {
@@ -179,7 +177,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			}
 		}
 
-		// Parse page param (1-indexed).
 		page := 1
 		if p := r.URL.Query().Get("page"); p != "" {
 			if n, err := strconv.Atoi(p); err == nil && n > 1 {
@@ -187,16 +184,14 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			}
 		}
 
-		// Fetch accounts for the filter dropdown.
-		accounts, err := store.GetAllAccounts(r.Context())
+		accounts, err := s.GetAllAccounts(r.Context())
 		if err != nil {
 			log.Printf("transactionsGet: failed to load accounts: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		// Fetch transactions for the selected month/account/page.
-		txPage, err := store.GetTransactions(r.Context(), types.TransactionFilter{
+		txPage, err := s.GetTransactions(r.Context(), types.TransactionFilter{
 			Year:      year,
 			Month:     month,
 			AccountID: accountID,
@@ -208,7 +203,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			return
 		}
 
-		// Build display groups keyed by date.
 		var groups []types.TransactionGroup
 		groupIndex := map[string]int{}
 		for _, tx := range txPage.Transactions {
@@ -225,7 +219,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			}
 		}
 
-		// Build prev/next month values for the stepper.
 		currentMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 		prevMonth := currentMonth.AddDate(0, -1, 0).Format("2006-01")
 		nextMonth := currentMonth.AddDate(0, 1, 0).Format("2006-01")
@@ -235,7 +228,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			viewProps
 			Accounts      []types.Account
 			Groups        []types.TransactionGroup
-			HasAccounts   bool
 			CurrentMonth  string
 			PrevMonth     string
 			NextMonth     string
@@ -249,7 +241,6 @@ func transactionsGet(store store.Store) http.HandlerFunc {
 			viewProps:    viewProps{CspNonce: nonce, ActivePage: "transactions"},
 			Accounts:     accounts,
 			Groups:       groups,
-			HasAccounts:  len(accounts) > 0,
 			CurrentMonth: currentMonth.Format("2006-01"),
 			PrevMonth:    prevMonth,
 			NextMonth:    nextMonth,
@@ -307,7 +298,6 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 			return
 		}
 
-		// Load plan items for the transaction's month so the user can assign it.
 		var planItems []types.PlanItem
 		txYear, txMonth := tx.TransactionDate.Year(), int(tx.TransactionDate.Month())
 		if plan, found, err := s.GetPlanByMonth(r.Context(), txYear, txMonth); err != nil {
@@ -340,7 +330,109 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 	}
 }
 
-func accountsGet(store store.Store) http.HandlerFunc {
+func transactionNewGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+	t := template.Must(
+		template.New("base.html").
+			ParseFS(
+				templateFS,
+				"templates/layouts/base.html",
+				"templates/layouts/app.html",
+				"templates/pages/transaction_form.html",
+			))
+	return func(w http.ResponseWriter, r *http.Request) {
+		nonce, err := extractCspNonceOnly(r)
+		if err != nil {
+			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		accounts, err := s.GetAllAccounts(r.Context())
+		if err != nil {
+			log.Printf("transactionNewGet: failed to load accounts: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		props := struct {
+			viewProps
+			Accounts    []types.Account
+			Transaction types.Transaction
+			IsEdit      bool
+		}{
+			viewProps: viewProps{CspNonce: nonce, ActivePage: "transactions"},
+			Accounts:  accounts,
+			IsEdit:    false,
+		}
+
+		if err := t.Execute(w, props); err != nil {
+			log.Printf("Could not create transaction form page: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+		}
+	}
+}
+
+func transactionEditGet(s store.Store) http.HandlerFunc {
+	t := template.Must(
+		template.New("base.html").
+			ParseFS(
+				templateFS,
+				"templates/layouts/base.html",
+				"templates/layouts/app.html",
+				"templates/pages/transaction_form.html",
+			))
+	return func(w http.ResponseWriter, r *http.Request) {
+		nonce, err := extractCspNonceOnly(r)
+		if err != nil {
+			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			renderAppError(w, r, http.StatusNotFound)
+			return
+		}
+
+		tx, err := s.GetTransactionByID(r.Context(), id)
+		if errors.Is(err, store.ErrTransactionNotFound) {
+			renderAppError(w, r, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("transactionEditGet: failed to load transaction %d: %v", id, err)
+			renderAppError(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		accounts, err := s.GetAllAccounts(r.Context())
+		if err != nil {
+			log.Printf("transactionEditGet: failed to load accounts: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		props := struct {
+			viewProps
+			Accounts    []types.Account
+			Transaction types.Transaction
+			IsEdit      bool
+		}{
+			viewProps:   viewProps{CspNonce: nonce, ActivePage: "transactions"},
+			Accounts:    accounts,
+			Transaction: tx,
+			IsEdit:      true,
+		}
+
+		if err := t.Execute(w, props); err != nil {
+			log.Printf("Could not create transaction edit page: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+		}
+	}
+}
+
+func accountsGet(s store.Store) http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -357,34 +449,19 @@ func accountsGet(store store.Store) http.HandlerFunc {
 			return
 		}
 
-		items, err := store.GetPlaidItems(r.Context())
+		accounts, err := s.GetAllAccounts(r.Context())
 		if err != nil {
-			log.Printf("accountsGet: failed to load plaid items: %v", err)
+			log.Printf("accountsGet: failed to load accounts: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		groups := make([]types.Institution, 0, len(items))
-		for _, item := range items {
-			accounts, err := store.GetAccountsByItemID(r.Context(), item.ID)
-			if err != nil {
-				log.Printf("accountsGet: failed to load accounts for item %d: %v", item.ID, err)
-				renderAppError(w, r, http.StatusInternalServerError)
-				return
-			}
-
-			groups = append(groups, types.Institution{
-				Name:     item.InstitutionName,
-				Accounts: accounts,
-			})
-		}
-
 		props := struct {
 			viewProps
-			Groups []types.Institution
+			Accounts []types.Account
 		}{
 			viewProps: viewProps{CspNonce: nonce, ActivePage: "accounts"},
-			Groups:    groups,
+			Accounts:  accounts,
 		}
 
 		if err := t.Execute(w, props); err != nil {
@@ -394,7 +471,7 @@ func accountsGet(store store.Store) http.HandlerFunc {
 	}
 }
 
-func settingsGet(store store.Store) http.HandlerFunc {
+func settingsGet() http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -411,22 +488,7 @@ func settingsGet(store store.Store) http.HandlerFunc {
 			return
 		}
 
-		items, err := store.GetPlaidItems(r.Context())
-		if err != nil {
-			log.Printf("settingsGet: failed to load plaid items: %v", err)
-			renderAppError(w, r, http.StatusInternalServerError)
-			return
-		}
-
-		props := struct {
-			viewProps
-			PlaidItems []types.PlaidItem
-		}{
-			viewProps:  viewProps{CspNonce: nonce, ActivePage: "settings"},
-			PlaidItems: items,
-		}
-
-		if err := t.Execute(w, props); err != nil {
+		if err := t.Execute(w, viewProps{CspNonce: nonce, ActivePage: "settings"}); err != nil {
 			log.Printf("Could not create settings page: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 		}
