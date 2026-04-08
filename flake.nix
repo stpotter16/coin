@@ -42,6 +42,31 @@
         sqlfluff = sqlfluff-nixpkgs.legacyPackages.${system}.sqlfluff;
         nodejs = nodejs-nixpkgs.legacyPackages.${system}.nodejs_24;
       in {
+        packages.default = gopkg.buildGoModule {
+          pname = "coin";
+          version = "0.1.0";
+          src = ./.;
+          vendorHash = "sha256-UUkuvo6F1ngxGMw1GBGN4+9GnFUkdq3nKxLoUYX1n+I=";
+
+          # Build configuration matching Makefile
+          subPackages = ["cmd/server"];
+
+          ldflags = [
+            "-s" # Strip symbol table
+            "-w" # Strip DWARF debugging info
+          ];
+
+          tags = ["sqlite_omit_load_extension"];
+
+          # SQLite requires CGO (enabled automatically via buildInputs)
+          buildInputs = [sqlite];
+      };
+
+      apps.default = {
+        type = "app";
+        program = "${self.packages.${system}.default}/bin/server";
+      };
+
         devShells.default = gopkg.mkShell {
             packages = [
               gopkg.gotools
