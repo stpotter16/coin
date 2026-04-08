@@ -99,13 +99,29 @@ All mutations use `fetch` calls in nonce-gated `<script type="module" nonce="{{ 
 | `internal/sync/sync.go`          | Hourly transaction sync logic                                   |
 | `PLAN.md`                        | Schema reference, Plaid integration details, UI status, backlog |
 
+## Deployment
+
+Coin is packaged via Nix (`flake.nix`). The deploy script builds the server for the target system using Nix, copies the closure to the remote host, updates the symlink, and restarts the systemd service.
+
+```
+TARGET_HOST=user@server make server/deploy
+```
+
+The script defaults to `x86_64-linux` as the target system and `/opt/coin/server` as the service symlink. Override via environment variables (`TARGET_SYSTEM`, `SERVICE_LINK`).
+
+The deploy also ships the `create_user` admin tool in the same Nix store path. To run it on the server after deploying:
+
+```
+$(readlink -f /opt/coin/server | xargs dirname)/create_user -username <username> -password <password> [-admin]
+```
+
 ## Environment Variables
 
-| Variable               | Purpose                                                                |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `COIN_DB_PATH`         | SQLite database directory                                              |
-| `COIN_SESSION_ENV_KEY` | HMAC secret for session cookies                                        |
-| `COIN_ENCRYPTION_KEY`  | AES-256-GCM key — 32 bytes, base64-encoded (`openssl rand -base64 32`) |
-| `COIN_PLAID_CLIENT_ID` | Plaid client ID                                                        |
-| `COIN_PLAID_SECRET`    | Plaid secret (sandbox or production)                                   |
-| `COIN_PLAID_ENV`       | `sandbox` or `production`                                              |
+| Variable               | Purpose                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `COIN_DB_PATH`         | SQLite database directory                                                  |
+| `COIN_SESSION_ENV_KEY` | HMAC secret for session cookies — generate with `make secrets/hmac`        |
+| `COIN_ENCRYPTION_KEY`  | AES-256-GCM key — 32 bytes, base64-encoded — generate with `make secrets/gcm` |
+| `COIN_PLAID_CLIENT_ID` | Plaid client ID                                                            |
+| `COIN_PLAID_SECRET`    | Plaid secret (sandbox or production)                                       |
+| `COIN_PLAID_ENV`       | `sandbox` or `production`                                                  |

@@ -49,7 +49,7 @@
           vendorHash = "sha256-UUkuvo6F1ngxGMw1GBGN4+9GnFUkdq3nKxLoUYX1n+I=";
 
           # Build configuration matching Makefile
-          subPackages = ["cmd/server"];
+          subPackages = ["cmd/server" "cmd/create_user"];
 
           ldflags = [
             "-s" # Strip symbol table
