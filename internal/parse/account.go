@@ -1,72 +1,26 @@
 package parse
 
 import (
-	"github.com/plaid/plaid-go/v21/plaid"
-	"github.com/stpotter16/coin/internal/types"
+	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
-func ParsePlaidAccount(pa plaid.AccountBase, plaidItemID int) (types.Account, error) {
-	balances := pa.GetBalances()
-	a := types.Account{
-		PlaidAccountID:  pa.GetAccountId(),
-		PlaidItemID:     plaidItemID,
-		Name:            pa.GetName(),
-		Type:            string(pa.GetType()),
-		Subtype:         string(*pa.GetSubtype().Ptr()),
-		IsoCurrencyCode: balances.GetIsoCurrencyCode(),
-	}
-
-	var accountName types.AccountName
-	if name := pa.GetOfficialName(); name != "" {
-		accountName.Value = &name
-	}
-	a.OfficialName = accountName
-
-	var currentBalance types.Balance
-	if balance, ok := balances.GetCurrentOk(); ok && balance != nil {
-		currentBalance.Value = balance
-	}
-	a.CurrentBalance = currentBalance
-
-	var availableBalance types.Balance
-	if balance, ok := balances.GetAvailableOk(); ok && balance != nil {
-		availableBalance.Value = balance
-	}
-	a.AvailableBalance = availableBalance
-
-	return a, nil
+type AccountRequest struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
-func ParseAccountDTO(a types.AccountDTO) (types.Account, error) {
-	var accountName types.AccountName
-	if a.OfficialName.Valid {
-		accountName.Value = &a.OfficialName.String
+func ParseAccountRequest(r *http.Request) (AccountRequest, error) {
+	var req AccountRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return AccountRequest{}, err
 	}
-
-	var currentBalance types.Balance
-	if a.CurrentBalance.Valid {
-		currentBalance.Value = &a.CurrentBalance.Float64
+	if req.Name == "" {
+		return AccountRequest{}, fmt.Errorf("name is required")
 	}
-
-	var availableBalance types.Balance
-	if a.AvailableBalance.Valid {
-		availableBalance.Value = &a.AvailableBalance.Float64
+	if req.Type == "" {
+		return AccountRequest{}, fmt.Errorf("type is required")
 	}
-
-	account := types.Account{
-		ID:               a.ID,
-		PlaidAccountID:   a.PlaidAccountID,
-		PlaidItemID:      a.PlaidItemID,
-		Name:             a.Name,
-		OfficialName:     accountName,
-		Type:             a.Type,
-		Subtype:          a.Subtype,
-		CurrentBalance:   currentBalance,
-		AvailableBalance: availableBalance,
-		IsoCurrencyCode:  a.IsoCurrencyCode,
-		CreatedTime:      a.CreatedTime,
-		LastModifiedTime: a.LastModifiedTime,
-	}
-
-	return account, nil
+	return req, nil
 }

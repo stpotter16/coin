@@ -1,27 +1,5 @@
 {{ define "title" }}Dashboard{{ end }}
-{{ define "script-tags" }}
-  <script type="module" nonce="{{ .CspNonce }}">
-    document.getElementById("sync-btn")?.addEventListener("click", async () => {
-      const btn = document.getElementById("sync-btn");
-      btn.disabled = true;
-      btn.textContent = "Syncing…";
-      try {
-        const res = await fetch("/sync", { method: "POST" });
-        if (!res.ok) {
-          alert("Sync failed. Please try again or check the server logs.");
-          btn.disabled = false;
-          btn.textContent = "Sync now";
-        } else {
-          window.location.reload();
-        }
-      } catch {
-        alert("Sync failed. Please check your connection and try again.");
-        btn.disabled = false;
-        btn.textContent = "Sync now";
-      }
-    });
-  </script>
-{{ end }}
+{{ define "script-tags" }}{{ end }}
 {{ define "page-content" }}
   {{ if not .HasAccounts }}
     <div
@@ -42,12 +20,12 @@
         />
       </svg>
       <div>
-        <p class="text-lg font-semibold">No accounts connected</p>
+        <p class="text-lg font-semibold">No accounts yet</p>
         <p class="text-base-content/60 mt-1">
-          Connect a bank account to start tracking your finances.
+          Add an account to start tracking your finances.
         </p>
       </div>
-      <a href="/settings" class="btn btn-primary">Connect an account</a>
+      <a href="/accounts" class="btn btn-primary">Add an account</a>
     </div>
   {{ else }}
     <div class="flex flex-col gap-4">
@@ -134,11 +112,6 @@
           </div>
         </div>
       {{ end }}
-
-      {{/* Manual sync */}}
-      <div class="flex justify-center pb-2">
-        <button id="sync-btn" class="btn btn-primary btn-sm">Sync now</button>
-      </div>
     </div>
   {{ end }}
 {{ end }}
