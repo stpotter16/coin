@@ -25,8 +25,9 @@ type Store interface {
 	// Transactions (domain)
 	GetTransactions(ctx context.Context, filter types.TransactionFilter) (types.TransactionPage, error)
 	GetTransactionByID(ctx context.Context, id int) (types.Transaction, error)
-	CreateTransaction(ctx context.Context, req types.TransactionRequest, userID int) (int, error)
-	UpdateTransaction(ctx context.Context, id int, req types.TransactionRequest) error
+	CreateTransaction(ctx context.Context, req types.TransactionWrite, userID int) (int, error)
+	BulkCreateTransactions(ctx context.Context, rows []types.TransactionWrite, userID int) (int, error)
+	UpdateTransaction(ctx context.Context, id int, req types.TransactionWrite) error
 	DeleteTransaction(ctx context.Context, id int) error
 	UpdateTransactionPlanItem(ctx context.Context, transactionID int, planItemID *int) error
 	GetFlexibleSpending(ctx context.Context, year, month int) (float64, error)

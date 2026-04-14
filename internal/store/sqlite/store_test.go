@@ -62,7 +62,7 @@ func mustCreateAccount(t *testing.T, s store.Store) types.Account {
 func mustCreateTransaction(t *testing.T, s store.Store, userID int, amount float64, date, description string) int {
 	t.Helper()
 	ctx := context.Background()
-	req := types.TransactionRequest{
+	req := types.TransactionWrite{
 		Amount:      amount,
 		Date:        date,
 		Description: description,
@@ -314,7 +314,7 @@ func TestCreateTransaction_WithAccount(t *testing.T) {
 	userID := mustCreateUser(t, s)
 	account := mustCreateAccount(t, s)
 
-	req := types.TransactionRequest{
+	req := types.TransactionWrite{
 		AccountID:   &account.ID,
 		Amount:      100.00,
 		Date:        "2025-08-01",
@@ -341,7 +341,7 @@ func TestUpdateTransaction(t *testing.T) {
 
 	id := mustCreateTransaction(t, s, userID, 50.00, "2025-09-01", "Old Description")
 
-	req := types.TransactionRequest{
+	req := types.TransactionWrite{
 		Amount:      75.00,
 		Date:        "2025-09-02",
 		Description: "New Description",
@@ -473,6 +473,59 @@ func TestGetFlexibleSpending(t *testing.T) {
 	}
 	if spending != 30.00 {
 		t.Errorf("GetFlexibleSpending = %f, want %f", spending, 30.00)
+	}
+}
+
+func TestBulkCreateTransactions(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	userID := mustCreateUser(t, s)
+
+	rows := []types.TransactionWrite{
+		{Amount: 12.50, Date: "2025-01-01", Description: "Coffee"},
+		{Amount: 25.00, Date: "2025-01-02", Description: "Lunch"},
+		{Amount: -1000.00, Date: "2025-01-03", Description: "Paycheck"},
+	}
+
+	count, err := s.BulkCreateTransactions(ctx, rows, userID)
+	if err != nil {
+		t.Fatalf("BulkCreateTransactions: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("count = %d, want 3", count)
+	}
+
+	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 1, Page: 1})
+	if err != nil {
+		t.Fatalf("GetTransactions: %v", err)
+	}
+	if len(page.Transactions) != 3 {
+		t.Errorf("got %d transactions, want 3", len(page.Transactions))
+	}
+}
+
+func TestBulkCreateTransactions_RollsBackOnError(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	userID := mustCreateUser(t, s)
+
+	badAccountID := 99999
+	rows := []types.TransactionWrite{
+		{Amount: 12.50, Date: "2025-02-01", Description: "Valid"},
+		{AccountID: &badAccountID, Amount: 25.00, Date: "2025-02-02", Description: "Bad account"},
+	}
+
+	_, err := s.BulkCreateTransactions(ctx, rows, userID)
+	if err == nil {
+		t.Fatal("expected error for FK violation, got nil")
+	}
+
+	page, err := s.GetTransactions(ctx, types.TransactionFilter{Year: 2025, Month: 2, Page: 1})
+	if err != nil {
+		t.Fatalf("GetTransactions after rollback: %v", err)
+	}
+	if len(page.Transactions) != 0 {
+		t.Errorf("got %d transactions after rollback, want 0", len(page.Transactions))
 	}
 }
 

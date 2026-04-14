@@ -35,7 +35,7 @@ func (s Store) UpdateTransactionPlanItem(ctx context.Context, transactionID int,
 	return err
 }
 
-func (s Store) CreateTransaction(ctx context.Context, req types.TransactionRequest, userID int) (int, error) {
+func (s Store) CreateTransaction(ctx context.Context, req types.TransactionWrite, userID int) (int, error) {
 	now := formatTime(time.Now().UTC())
 	result, err := s.db.Exec(ctx,
 		`INSERT INTO transactions
@@ -59,7 +59,31 @@ func (s Store) CreateTransaction(ctx context.Context, req types.TransactionReque
 	return int(id), err
 }
 
-func (s Store) UpdateTransaction(ctx context.Context, id int, req types.TransactionRequest) error {
+func (s Store) BulkCreateTransactions(ctx context.Context, rows []types.TransactionWrite, userID int) (int, error) {
+	now := formatTime(time.Now().UTC())
+	err := s.db.WithTx(ctx, func(tx *sql.Tx) error {
+		for _, req := range rows {
+			_, err := tx.ExecContext(ctx,
+				`INSERT INTO transactions
+					(account_id, amount, transaction_date, description, merchant_name,
+					 pending, created_by, created_time, last_modified_time)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				req.AccountID, req.Amount, req.Date, req.Description,
+				req.MerchantName, false, userID, now, now,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return len(rows), nil
+}
+
+func (s Store) UpdateTransaction(ctx context.Context, id int, req types.TransactionWrite) error {
 	now := formatTime(time.Now().UTC())
 	_, err := s.db.Exec(ctx,
 		`UPDATE transactions

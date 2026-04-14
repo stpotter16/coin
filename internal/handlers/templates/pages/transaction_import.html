@@ -1,0 +1,220 @@
+{{ define "title" }}Import Transactions{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    function formatAmount(amount) {
+      const abs = Math.abs(amount).toFixed(2);
+      return amount >= 0 ? `$${abs}` : `-$${abs}`;
+    }
+
+    let confirmedRows = [];
+
+    function renderPreview(rows) {
+      const section = document.getElementById("preview-section");
+      const tbody = document.getElementById("preview-tbody");
+      const confirmBtn = document.getElementById("confirm-btn");
+      const countEl = document.getElementById("row-count");
+
+      section.classList.remove("hidden");
+      tbody.innerHTML = "";
+
+      const hasErrors = rows.some((r) => r.errors?.length > 0);
+      confirmBtn.disabled = hasErrors;
+      countEl.textContent = `${rows.length} row${rows.length !== 1 ? "s" : ""}`;
+
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        if (row.errors?.length > 0) tr.classList.add("bg-error/10");
+
+        const amountClass =
+          row.amount >= 0
+            ? "text-error font-semibold"
+            : "text-success font-semibold";
+
+        let accountCell = '<span class="text-base-content/40">None</span>';
+        if (row.account_id) {
+          accountCell = row.account_name;
+        } else if (row.account_name) {
+          accountCell = `<span class="text-warning">${row.account_name} <span class="text-xs">(no match)</span></span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="text-xs">${row.date}</td>
+          <td class="text-xs">${row.description}</td>
+          <td class="text-xs ${amountClass}">${formatAmount(row.amount)}</td>
+          <td class="text-xs">${accountCell}</td>
+          <td class="text-xs">${row.merchant_name ?? ""}</td>
+          <td class="text-xs text-error">${(row.errors ?? []).join(", ")}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      confirmedRows = rows.filter((r) => !r.errors?.length);
+    }
+
+    document
+      .getElementById("csv-file")
+      .addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const parseErrorEl = document.getElementById("parse-error");
+        parseErrorEl.classList.add("hidden");
+        document.getElementById("preview-section").classList.add("hidden");
+
+        try {
+          const resp = await fetch("/transactions/import/preview", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "text/csv" },
+            body: file,
+          });
+          if (!resp.ok) {
+            const msg = await resp.text();
+            parseErrorEl.textContent = msg || "Could not parse the file.";
+            parseErrorEl.classList.remove("hidden");
+            return;
+          }
+          const rows = await resp.json();
+          renderPreview(rows);
+        } catch {
+          parseErrorEl.textContent = "Could not parse the file.";
+          parseErrorEl.classList.remove("hidden");
+        }
+      });
+
+    document
+      .getElementById("confirm-btn")
+      .addEventListener("click", async () => {
+        const errorEl = document.getElementById("submit-error");
+        errorEl.classList.add("hidden");
+
+        const body = confirmedRows.map((r) => ({
+          description: r.description,
+          amount: r.amount,
+          date: r.date,
+          account_id: r.account_id,
+          merchant_name: r.merchant_name,
+          pending: false,
+        }));
+
+        try {
+          const resp = await fetch("/transactions/import", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!resp.ok) throw new Error();
+          window.location.href = "/transactions";
+        } catch {
+          errorEl.classList.remove("hidden");
+        }
+      });
+  </script>
+{{ end }}
+{{ define "page-content" }}
+  <div class="flex flex-col gap-6">
+    <a
+      href="/transactions"
+      class="flex items-center gap-1 text-sm text-base-content/60"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="size-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M15 19l-7-7 7-7"
+        />
+      </svg>
+      Transactions
+    </a>
+
+    <h1 class="text-xl font-bold">Import Transactions</h1>
+
+    <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Required</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code class="font-mono">date</code></td>
+            <td>Yes</td>
+            <td class="text-base-content/60">YYYY-MM-DD</td>
+          </tr>
+          <tr>
+            <td><code class="font-mono">description</code></td>
+            <td>Yes</td>
+            <td class="text-base-content/60"></td>
+          </tr>
+          <tr>
+            <td><code class="font-mono">amount</code></td>
+            <td>Yes</td>
+            <td class="text-base-content/60">
+              Positive = expense, negative = income
+            </td>
+          </tr>
+          <tr>
+            <td><code class="font-mono">account_name</code></td>
+            <td>No</td>
+            <td class="text-base-content/60">
+              Must match an existing account name
+            </td>
+          </tr>
+          <tr>
+            <td><code class="font-mono">merchant_name</code></td>
+            <td>No</td>
+            <td class="text-base-content/60"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <input
+      id="csv-file"
+      type="file"
+      accept=".csv,text/csv"
+      class="file-input file-input-bordered w-full"
+    />
+
+    <p id="parse-error" class="hidden text-sm text-error"></p>
+
+    <div id="preview-section" class="hidden flex flex-col gap-4">
+      <p class="text-sm font-medium">Preview — <span id="row-count"></span></p>
+
+      <div class="overflow-x-auto">
+        <table class="table table-xs">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Account</th>
+              <th>Merchant</th>
+              <th>Errors</th>
+            </tr>
+          </thead>
+          <tbody id="preview-tbody"></tbody>
+        </table>
+      </div>
+
+      <p id="submit-error" class="hidden text-sm text-error">
+        Import failed. Please try again.
+      </p>
+
+      <button id="confirm-btn" class="btn btn-primary w-full" disabled>
+        Confirm import
+      </button>
+    </div>
+  </div>
+{{ end }}

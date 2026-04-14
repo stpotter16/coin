@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -9,6 +10,54 @@ import (
 	"github.com/stpotter16/coin/internal/parse"
 	"github.com/stpotter16/coin/internal/store"
 )
+
+func transactionImportPreviewPost(s store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		accounts, err := s.GetAllAccounts(r.Context())
+		if err != nil {
+			log.Printf("transactionImportPreviewPost: failed to load accounts: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+
+		rows, err := parse.ParseTransactionImportCSV(r.Body, accounts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(rows); err != nil {
+			log.Printf("transactionImportPreviewPost: encode: %v", err)
+		}
+	}
+}
+
+func transactionImportPost(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		session, err := sessionManager.SessionFromContext(r.Context())
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		rows, err := parse.ParseTransactionImportWrite(r)
+		if err != nil {
+			http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		count, err := s.BulkCreateTransactions(r.Context(), rows, session.UserId)
+		if err != nil {
+			log.Printf("transactionImportPost: %v", err)
+			http.Error(w, "Server issue - try again later", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"count":` + strconv.Itoa(count) + `}`))
+	}
+}
 
 func transactionPlanItemPost(s store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +91,7 @@ func transactionCreatePost(s store.Store, sessionManager sessions.SessionManger)
 			return
 		}
 
-		req, err := parse.ParseTransactionRequest(r)
+		req, err := parse.ParseTransactionWrite(r)
 		if err != nil {
 			http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
 			return
@@ -69,7 +118,7 @@ func transactionUpdatePut(s store.Store) http.HandlerFunc {
 			return
 		}
 
-		req, err := parse.ParseTransactionRequest(r)
+		req, err := parse.ParseTransactionWrite(r)
 		if err != nil {
 			http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
 			return

@@ -432,6 +432,30 @@ func transactionEditGet(s store.Store) http.HandlerFunc {
 	}
 }
 
+func transactionImportGet() http.HandlerFunc {
+	t := template.Must(
+		template.New("base.html").
+			ParseFS(
+				templateFS,
+				"templates/layouts/base.html",
+				"templates/layouts/app.html",
+				"templates/pages/transaction_import.html",
+			))
+	return func(w http.ResponseWriter, r *http.Request) {
+		nonce, err := extractCspNonceOnly(r)
+		if err != nil {
+			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		if err := t.Execute(w, viewProps{CspNonce: nonce, ActivePage: "transactions"}); err != nil {
+			log.Printf("Could not create transaction import page: %v", err)
+			renderAppError(w, r, http.StatusInternalServerError)
+		}
+	}
+}
+
 func accountNewGet() http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").

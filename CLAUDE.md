@@ -37,7 +37,7 @@ All HTTP request parsing and validation lives in `internal/parse`, not in handle
 
 - Parse functions live in the file matching their domain: `parse/transaction.go`, `parse/account.go`, `parse/login.go`
 - Do NOT create a new file per parse function — add to the existing domain file
-- Request types (e.g. `TransactionRequest`) live in `internal/types/` in their own file (e.g. `transaction_request.go`)
+- Write params types (e.g. `TransactionWrite`) live in `internal/types/` in the domain file alongside the read types (e.g. `transaction.go`)
 
 ### JavaScript
 
@@ -47,17 +47,16 @@ All mutations use `fetch` calls in nonce-gated `<script type="module" nonce="{{ 
 
 ### Where New Code Goes
 
-| Thing                  | Location                                                            |
-| ---------------------- | ------------------------------------------------------------------- |
-| View handlers          | `internal/handlers/views.go` — all in one file                      |
-| API handlers           | `internal/handlers/<domain>.go` (e.g. `transactions.go`, `plan.go`) |
-| All routes             | `internal/handlers/routes.go`                                       |
-| Store interface        | `internal/store/store.go`                                           |
-| SQLite implementations | `internal/store/sqlite/<domain>.go`                                 |
-| SQL migrations         | `internal/store/sqlite/migrations/` — numbered sequentially         |
-| Internal types         | `internal/types/<type>.go` — one file per type                      |
-| Request types          | `internal/types/<domain>_request.go`                                |
-| Parse functions        | `internal/parse/<domain>.go` — one file per domain                  |
+| Thing                  | Location                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| View handlers          | `internal/handlers/views.go` — all in one file                                 |
+| API handlers           | `internal/handlers/<domain>.go` (e.g. `transactions.go`, `plan.go`)            |
+| All routes             | `internal/handlers/routes.go`                                                  |
+| Store interface        | `internal/store/store.go`                                                      |
+| SQLite implementations | `internal/store/sqlite/<domain>.go`                                            |
+| SQL migrations         | `internal/store/sqlite/migrations/` — numbered sequentially                    |
+| Internal types         | `internal/types/<domain>.go` — one file per domain, all related types together |
+| Parse functions        | `internal/parse/<domain>.go` — one file per domain                             |
 
 ### After Making Changes
 

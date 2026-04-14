@@ -119,3 +119,33 @@ func (m MerchantName) String() string {
 	}
 	return *m.Value
 }
+
+// TransactionWrite holds the fields required to create or update a transaction.
+type TransactionWrite struct {
+	AccountID    *int
+	Amount       float64 // signed: positive = expense, negative = income
+	Date         string  // YYYY-MM-DD
+	Description  string
+	MerchantName *string
+	Pending      bool
+}
+
+const TransactionPageSize = 100
+
+type TransactionFilter struct {
+	Year      int
+	Month     int  // 1–12
+	AccountID *int // nil = all accounts
+	Page      int  // 1-indexed; 0 or 1 both mean the first page
+}
+
+type TransactionImportRow struct {
+	RowNum       int      `json:"row_num"`
+	Date         string   `json:"date"`
+	Description  string   `json:"description"`
+	Amount       float64  `json:"amount"`
+	AccountID    *int     `json:"account_id"`
+	AccountName  string   `json:"account_name"`
+	MerchantName *string  `json:"merchant_name"`
+	Errors       []string `json:"errors"`
+}
