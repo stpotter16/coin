@@ -1,36 +1,6 @@
 {{ define "title" }}Accounts{{ end }}
 {{ define "script-tags" }}
   <script type="module" nonce="{{ .CspNonce }}">
-    // Add account
-    document
-      .getElementById("add-account-btn")
-      ?.addEventListener("click", () => {
-        document.getElementById("add-account-modal").showModal();
-      });
-
-    document
-      .getElementById("add-account-form")
-      ?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const name = document.getElementById("account-name").value.trim();
-        const type = document.getElementById("account-type").value;
-        const errorEl = document.getElementById("add-account-error");
-        errorEl.classList.add("hidden");
-
-        try {
-          const resp = await fetch("/accounts", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, type }),
-          });
-          if (!resp.ok) throw new Error();
-          window.location.reload();
-        } catch {
-          errorEl.classList.remove("hidden");
-        }
-      });
-
     // Delete account
     document.querySelectorAll("[data-delete-account]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -55,9 +25,7 @@
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-bold">Accounts</h1>
-      <button id="add-account-btn" class="btn btn-primary btn-sm">
-        Add account
-      </button>
+      <a href="/accounts/new" class="btn btn-primary btn-sm">Add account</a>
     </div>
 
     {{ if not .Accounts }}
@@ -108,50 +76,4 @@
       </ul>
     {{ end }}
   </div>
-
-  {{/* Add account modal */}}
-  <dialog id="add-account-modal" class="modal">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg mb-4">Add account</h3>
-      <form id="add-account-form" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium" for="account-name">Name</label>
-          <input
-            id="account-name"
-            type="text"
-            placeholder="e.g. Chase Checking"
-            class="input input-bordered"
-            required
-          />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium" for="account-type">Type</label>
-          <select id="account-type" class="select select-bordered">
-            <option value="checking">Checking</option>
-            <option value="savings">Savings</option>
-            <option value="credit">Credit</option>
-            <option value="loan">Loan</option>
-            <option value="investment">Investment</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <p id="add-account-error" class="text-error text-sm hidden">
-          Failed to add account. Please try again.
-        </p>
-        <div class="modal-action mt-0">
-          <button
-            type="button"
-            class="btn btn-ghost"
-            onclick="document.getElementById('add-account-modal').close()"
-          >
-            Cancel
-          </button>
-          <button type="submit" class="btn btn-primary">Add</button>
-        </div>
-      </form>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-      <button>close</button>
-    </form>
-  </dialog>
 {{ end }}

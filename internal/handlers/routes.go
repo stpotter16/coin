@@ -30,6 +30,7 @@ func addRoutes(
 	mux.Handle("GET /transactions/{id}", viewAuthRequired(transactionDetailGet(store)))
 	mux.Handle("GET /transactions/{id}/edit", viewAuthRequired(transactionEditGet(store)))
 	mux.Handle("GET /accounts", viewAuthRequired(accountsGet(store)))
+	mux.Handle("GET /accounts/new", viewAuthRequired(accountNewGet()))
 	mux.Handle("GET /settings", viewAuthRequired(settingsGet()))
 
 	// Auth

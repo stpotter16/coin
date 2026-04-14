@@ -1,0 +1,85 @@
+{{ define "title" }}New Account{{ end }}
+{{ define "script-tags" }}
+  <script type="module" nonce="{{ .CspNonce }}">
+    document
+      .getElementById("account-form")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById("account-error");
+        errorEl.classList.add("hidden");
+
+        const name = document.getElementById("account-name").value.trim();
+        const type = document.getElementById("account-type").value;
+
+        try {
+          const resp = await fetch("/accounts", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, type }),
+          });
+          if (!resp.ok) throw new Error();
+          window.location.href = "/accounts";
+        } catch {
+          errorEl.classList.remove("hidden");
+        }
+      });
+  </script>
+{{ end }}
+{{ define "page-content" }}
+  <div class="flex flex-col gap-6">
+    <a
+      href="/accounts"
+      class="flex items-center gap-1 text-sm text-base-content/60"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="size-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M15 19l-7-7 7-7"
+        />
+      </svg>
+      Accounts
+    </a>
+
+    <h1 class="text-xl font-bold">New Account</h1>
+
+    <form id="account-form" class="flex flex-col gap-5">
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="account-name">Name</label>
+        <input
+          id="account-name"
+          type="text"
+          placeholder="e.g. Chase Checking"
+          class="input input-bordered"
+          required
+        />
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium" for="account-type">Type</label>
+        <select id="account-type" class="select select-bordered">
+          <option value="checking">Checking</option>
+          <option value="savings">Savings</option>
+          <option value="credit">Credit</option>
+          <option value="loan">Loan</option>
+          <option value="investment">Investment</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <p id="account-error" class="text-error text-sm hidden">
+        Failed to add account. Please try again.
+      </p>
+
+      <button type="submit" class="btn btn-primary w-full">Add account</button>
+    </form>
+  </div>
+{{ end }}
