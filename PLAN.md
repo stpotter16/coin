@@ -260,6 +260,31 @@ Plaid was previously integrated for automatic transaction sync. This has been re
 - ⬜ Add `templates/pages/transaction_form.html` — shared create/edit form
 - ⬜ Update `templates/pages/settings.html` — remove Plaid section
 
-### Future
+### CSV Import
 
-- ⬜ CSV import — bulk transaction entry from bank CSV export
+Bulk transaction entry from a fixed-format CSV file.
+
+**Format:** header row required; columns `date` (YYYY-MM-DD), `description`, `amount` (signed float — positive = expense, negative = income), `account_name` (optional, matched case-insensitively to existing accounts), `merchant_name` (optional). No `pending` column.
+
+**Error handling:** invalid rows fail the entire batch. Users are trusted not to double-import (no dedup).
+
+**UX flow:**
+1. `GET /transactions/import` — page loads account list (embedded as JSON for client-side name→ID resolution)
+2. User picks a CSV file — JS parses client-side, resolves account names, renders preview table
+3. Unmatched account names shown with a warning; rows with missing/invalid required fields highlighted and block confirm
+4. User confirms — JS POSTs JSON array to `POST /transactions/import`
+5. Server validates and bulk-inserts in a single SQLite transaction, returns `{"count": N}`
+6. Redirect to `/transactions`
+
+**Entry point:** "Import" button alongside "Add transaction" on the transactions list page.
+
+#### Implementation checklist
+
+- ⬜ `internal/store/store.go` — add `BulkCreateTransactions(ctx, []types.TransactionRequest, userID int) (int, error)` to interface
+- ⬜ `internal/store/sqlite/transactions.go` — implement `BulkCreateTransactions` using `db.WithTx`
+- ⬜ `internal/parse/transaction.go` — add `ParseTransactionImportRequest(r) ([]types.TransactionRequest, error)`; validates each row (required fields, date format); rejects batch on first error
+- ⬜ `internal/handlers/transactions.go` — add `transactionImportPost` handler
+- ⬜ `internal/handlers/views.go` — add `transactionImportGet` handler; loads accounts, marshals to `template.JS` for embedding
+- ⬜ `internal/handlers/routes.go` — add `GET /transactions/import` and `POST /transactions/import`
+- ⬜ `templates/pages/transaction_import.html` — file picker, JS CSV parser (handles quoted fields), preview table, confirm button
+- ⬜ `templates/pages/transactions.html` — add "Import" button alongside "Add transaction"
