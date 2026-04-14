@@ -44,9 +44,9 @@
       in {
         packages.default = gopkg.buildGoModule {
           pname = "coin";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./.;
-          vendorHash = "sha256-UUkuvo6F1ngxGMw1GBGN4+9GnFUkdq3nKxLoUYX1n+I=";
+          vendorHash = "sha256-nyHXFM/TjlPH0siJapofJnpqaP1G1P4tMD0g23GdxZI=";
 
           # Build configuration matching Makefile
           subPackages = ["cmd/server" "cmd/create_user"];
