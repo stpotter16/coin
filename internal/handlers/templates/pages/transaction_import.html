@@ -2,8 +2,7 @@
 {{ define "script-tags" }}
   <script type="module" nonce="{{ .CspNonce }}">
     function formatAmount(amount) {
-      const abs = Math.abs(amount).toFixed(2);
-      return amount >= 0 ? `$${abs}` : `-$${abs}`;
+      return `$${Math.abs(amount).toFixed(2)}`;
     }
 
     let confirmedRows = [];
