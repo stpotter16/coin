@@ -33,12 +33,13 @@ if [[ "${IS_LITESTREAM_ENABLED}" == 'true' ]]; then
   echo "LITESTREAM_BUCKET=${LITESTREAM_BUCKET}"
   echo "LITESTREAM_ENDPOINT=${LITESTREAM_ENDPOINT}"
 
-  if [[ -f "$COIN_DB_PATH" ]]; then
-    echo "Existing database is $(stat -c %s "${COIN_DB_PATH}") bytes"
+  COIN_DB_FILE="${COIN_DB_PATH}/coin.sqlite"
+  if [[ -f "$COIN_DB_FILE" ]]; then
+    echo "Existing database is $(stat -c %s "${COIN_DB_FILE}") bytes"
   else
     echo "No existing database found"
     # Restore database from remote storage.
-    /app/litestream restore -if-replica-exists "${COIN_DB_PATH}"
+    /app/litestream restore -if-replica-exists "${COIN_DB_FILE}"
   fi
 
   # Let Litestream start go-app-starter as a child process

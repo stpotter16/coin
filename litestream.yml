@@ -1,7 +1,7 @@
 access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
 secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
 dbs:
-  - path: ${COIN_DB_PATH}
+  - path: ${COIN_DB_PATH}/coin.sqlite
     replicas:
       - type: s3
         bucket: ${LITESTREAM_BUCKET}
@@ -11,4 +11,4 @@ dbs:
         retention: 168h # 7 days
         snapshot-interval: 24h
         validation-interval: 72h
-        sync-interval: 15m
+        sync-interval: 1s

@@ -6,7 +6,7 @@
 app = 'dev-stpotter-coin'
 primary_region = 'iad'
 kill_signal = 'SIGINT'
-kill_timeout = '5s'
+kill_timeout = '30s'
 
 [experimental]
   auto_rollback = true
