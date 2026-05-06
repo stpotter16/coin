@@ -106,6 +106,10 @@ func (s SessionManger) PopulateSessionContext(r *http.Request) (context.Context,
 }
 
 func (s SessionManger) SessionFromContext(ctx context.Context) (Session, error) {
+	return GetSessionFromContext(ctx)
+}
+
+func GetSessionFromContext(ctx context.Context) (Session, error) {
 	ctxKey := contextKey{SESSION_KEY}
 	session, okay := ctx.Value(ctxKey).(Session)
 	if !okay {

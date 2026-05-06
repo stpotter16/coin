@@ -41,7 +41,6 @@ func ParseTransactionWrite(r *http.Request) (types.TransactionWrite, error) {
 	}, nil
 }
 
-
 // ParseTransactionImportCSV parses a CSV reader into import rows, resolving
 // account names case-insensitively against the provided account list. Each row
 // carries its own Errors slice; the caller decides whether to reject the batch.

@@ -1,6 +1,7 @@
 {{ define "title" }}New Account{{ end }}
 {{ define "script-tags" }}
   <script type="module" nonce="{{ .CspNonce }}">
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     document
       .getElementById("account-form")
       .addEventListener("submit", async (e) => {
@@ -15,7 +16,10 @@
           const resp = await fetch("/accounts", {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken,
+            },
             body: JSON.stringify({ name, type }),
           });
           if (!resp.ok) throw new Error();

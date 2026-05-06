@@ -1,6 +1,8 @@
 {{ define "title" }}Import Transactions{{ end }}
 {{ define "script-tags" }}
   <script type="module" nonce="{{ .CspNonce }}">
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
     function formatAmount(amount) {
       return `$${Math.abs(amount).toFixed(2)}`;
     }
@@ -64,7 +66,7 @@
           const resp = await fetch("/transactions/import/preview", {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "text/csv" },
+            headers: { "Content-Type": "text/csv", "X-CSRF-Token": csrfToken },
             body: file,
           });
           if (!resp.ok) {
@@ -100,7 +102,10 @@
           const resp = await fetch("/transactions/import", {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken,
+            },
             body: JSON.stringify(body),
           });
           if (!resp.ok) throw new Error();

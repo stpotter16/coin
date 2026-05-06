@@ -2,6 +2,7 @@
 {{ define "script-tags" }}
   {{ if .PlanItems }}
     <script type="module" nonce="{{ .CspNonce }}">
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
       document
         .getElementById("plan-item-save-btn")
         ?.addEventListener("click", async () => {
@@ -18,7 +19,7 @@
               {
                 method: "POST",
                 credentials: "include",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
                 body: JSON.stringify({ plan_item_id: select.value }),
               },
             );
@@ -32,6 +33,7 @@
     </script>
   {{ end }}
   <script type="module" nonce="{{ .CspNonce }}">
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     document
       .getElementById("delete-btn")
       ?.addEventListener("click", async () => {
@@ -40,6 +42,7 @@
           const resp = await fetch("/transactions/{{ .Transaction.ID }}", {
             method: "DELETE",
             credentials: "include",
+            headers: { "X-CSRF-Token": csrfToken },
           });
           if (!resp.ok) throw new Error();
           window.location.href = "/transactions";

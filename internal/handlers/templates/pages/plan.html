@@ -3,6 +3,7 @@
   <script type="module" nonce="{{ .CspNonce }}">
     const planID = {{ .Plan.ID }};
     const locked = {{ .Plan.Locked }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
     // Month stepper
     document.getElementById("prev-month")?.addEventListener("click", () => {
@@ -34,7 +35,7 @@
           const resp = await fetch(`/plan/${planID}/items`, {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
             body: JSON.stringify({ name, type, expected_amount }),
           });
           if (!resp.ok) throw new Error();
@@ -85,7 +86,7 @@
             const resp = await fetch(`/plan-items/${id}`, {
               method: "PUT",
               credentials: "include",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
               body: JSON.stringify({ name, expected_amount }),
             });
             if (!resp.ok) throw new Error();
@@ -115,6 +116,7 @@
             const resp = await fetch(`/plan-items/${id}`, {
               method: "DELETE",
               credentials: "include",
+              headers: { "X-CSRF-Token": csrfToken },
             });
             if (!resp.ok) throw new Error();
             document.getElementById(`row-${id}`).remove();
@@ -136,6 +138,7 @@
             const resp = await fetch(`/plan/${planID}/lock`, {
               method: "POST",
               credentials: "include",
+              headers: { "X-CSRF-Token": csrfToken },
             });
             if (!resp.ok) throw new Error();
             window.location.reload();

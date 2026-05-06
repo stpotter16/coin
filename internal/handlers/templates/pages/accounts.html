@@ -1,6 +1,7 @@
 {{ define "title" }}Accounts{{ end }}
 {{ define "script-tags" }}
   <script type="module" nonce="{{ .CspNonce }}">
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     // Delete account
     document.querySelectorAll("[data-delete-account]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -11,6 +12,7 @@
           const resp = await fetch(`/accounts/${id}`, {
             method: "DELETE",
             credentials: "include",
+            headers: { "X-CSRF-Token": csrfToken },
           });
           if (!resp.ok) throw new Error();
           window.location.reload();

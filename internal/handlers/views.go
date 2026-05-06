@@ -69,7 +69,7 @@ func loginGet() http.HandlerFunc {
 	}
 }
 
-func indexGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+func indexGet(s store.Store) http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -79,9 +79,9 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 				"templates/pages/index.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "dashboard")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -133,7 +133,7 @@ func indexGet(s store.Store, sessionManager sessions.SessionManger) http.Handler
 			HasAccounts bool
 			Summary     types.DashboardSummary
 		}{
-			viewProps:   viewProps{CspNonce: nonce, ActivePage: "dashboard"},
+			viewProps:   vp,
 			HasAccounts: len(accounts) > 0,
 			Summary:     summary,
 		}
@@ -155,9 +155,9 @@ func transactionsGet(s store.Store) http.HandlerFunc {
 				"templates/pages/transactions.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "transactions")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -238,7 +238,7 @@ func transactionsGet(s store.Store) http.HandlerFunc {
 			NextPage      int
 			HasMore       bool
 		}{
-			viewProps:    viewProps{CspNonce: nonce, ActivePage: "transactions"},
+			viewProps:    vp,
 			Accounts:     accounts,
 			Groups:       groups,
 			CurrentMonth: currentMonth.Format("2006-01"),
@@ -274,9 +274,9 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 				"templates/pages/transaction_detail.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "transactions")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -318,7 +318,7 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 			Transaction types.Transaction
 			PlanItems   []types.PlanItem
 		}{
-			viewProps:   viewProps{CspNonce: nonce, ActivePage: "transactions"},
+			viewProps:   vp,
 			Transaction: tx,
 			PlanItems:   planItems,
 		}
@@ -330,7 +330,7 @@ func transactionDetailGet(s store.Store) http.HandlerFunc {
 	}
 }
 
-func transactionNewGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+func transactionNewGet(s store.Store) http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -340,9 +340,9 @@ func transactionNewGet(s store.Store, sessionManager sessions.SessionManger) htt
 				"templates/pages/transaction_form.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "transactions")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -360,7 +360,7 @@ func transactionNewGet(s store.Store, sessionManager sessions.SessionManger) htt
 			Transaction types.Transaction
 			IsEdit      bool
 		}{
-			viewProps: viewProps{CspNonce: nonce, ActivePage: "transactions"},
+			viewProps: vp,
 			Accounts:  accounts,
 			IsEdit:    false,
 		}
@@ -382,9 +382,9 @@ func transactionEditGet(s store.Store) http.HandlerFunc {
 				"templates/pages/transaction_form.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "transactions")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -419,7 +419,7 @@ func transactionEditGet(s store.Store) http.HandlerFunc {
 			Transaction types.Transaction
 			IsEdit      bool
 		}{
-			viewProps:   viewProps{CspNonce: nonce, ActivePage: "transactions"},
+			viewProps:   vp,
 			Accounts:    accounts,
 			Transaction: tx,
 			IsEdit:      true,
@@ -442,14 +442,14 @@ func transactionImportGet() http.HandlerFunc {
 				"templates/pages/transaction_import.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "transactions")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		if err := t.Execute(w, viewProps{CspNonce: nonce, ActivePage: "transactions"}); err != nil {
+		if err := t.Execute(w, vp); err != nil {
 			log.Printf("Could not create transaction import page: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 		}
@@ -466,14 +466,14 @@ func accountNewGet() http.HandlerFunc {
 				"templates/pages/account_form.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "accounts")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		if err := t.Execute(w, viewProps{CspNonce: nonce, ActivePage: "accounts"}); err != nil {
+		if err := t.Execute(w, vp); err != nil {
 			log.Printf("Could not create account form page: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 		}
@@ -490,9 +490,9 @@ func accountsGet(s store.Store) http.HandlerFunc {
 				"templates/pages/accounts.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "accounts")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
@@ -508,7 +508,7 @@ func accountsGet(s store.Store) http.HandlerFunc {
 			viewProps
 			Accounts []types.Account
 		}{
-			viewProps: viewProps{CspNonce: nonce, ActivePage: "accounts"},
+			viewProps: vp,
 			Accounts:  accounts,
 		}
 
@@ -529,21 +529,21 @@ func settingsGet() http.HandlerFunc {
 				"templates/pages/settings.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "settings")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		if err := t.Execute(w, viewProps{CspNonce: nonce, ActivePage: "settings"}); err != nil {
+		if err := t.Execute(w, vp); err != nil {
 			log.Printf("Could not create settings page: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 		}
 	}
 }
 
-func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+func planGet(s store.Store) http.HandlerFunc {
 	t := template.Must(
 		template.New("base.html").
 			ParseFS(
@@ -553,14 +553,14 @@ func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerF
 				"templates/pages/plan.html",
 			))
 	return func(w http.ResponseWriter, r *http.Request) {
-		nonce, err := extractCspNonceOnly(r)
+		vp, err := extractAuthViewProps(r, "plan")
 		if err != nil {
-			log.Printf("Could not extract csp nonce from ctx: %v", err)
+			log.Printf("Could not extract view props from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
 			return
 		}
 
-		session, err := sessionManager.SessionFromContext(r.Context())
+		session, err := sessions.GetSessionFromContext(r.Context())
 		if err != nil {
 			log.Printf("planGet: could not get session from ctx: %v", err)
 			renderAppError(w, r, http.StatusInternalServerError)
@@ -608,7 +608,7 @@ func planGet(s store.Store, sessionManager sessions.SessionManger) http.HandlerF
 			PrevMonth    string
 			NextMonth    string
 		}{
-			viewProps:    viewProps{CspNonce: nonce, ActivePage: "plan"},
+			viewProps:    vp,
 			Plan:         plan,
 			IncomeItems:  incomeItems,
 			ExpenseItems: expenseItems,
@@ -630,4 +630,20 @@ func extractCspNonceOnly(r *http.Request) (string, error) {
 		return "", err
 	}
 	return cspNonce, nil
+}
+
+func extractAuthViewProps(r *http.Request, activePage string) (viewProps, error) {
+	nonce, err := middleware.NonceFromContext(r.Context())
+	if err != nil {
+		return viewProps{}, err
+	}
+	session, err := sessions.GetSessionFromContext(r.Context())
+	if err != nil {
+		return viewProps{}, err
+	}
+	return viewProps{
+		CsrfToken:  session.CsrfToken,
+		CspNonce:   nonce,
+		ActivePage: activePage,
+	}, nil
 }

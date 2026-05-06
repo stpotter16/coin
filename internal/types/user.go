@@ -10,4 +10,3 @@ type User struct {
 	CreatedTime      time.Time
 	LastModifiedTime time.Time
 }
-

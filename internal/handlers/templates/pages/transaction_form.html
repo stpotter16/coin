@@ -3,6 +3,8 @@
 {{ end }}
 {{ define "script-tags" }}
   <script type="module" nonce="{{ .CspNonce }}">
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
     // Expense/income toggle
     const expenseBtn = document.getElementById("toggle-expense");
     const incomeBtn = document.getElementById("toggle-income");
@@ -55,7 +57,7 @@
           const resp = await fetch(url, {
             method,
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
             body: JSON.stringify({
               description,
               amount,
