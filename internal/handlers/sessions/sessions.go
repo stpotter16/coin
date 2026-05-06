@@ -26,18 +26,18 @@ type Session struct {
 	CsrfToken string
 }
 
-type SessionManger struct {
+type SessionManager struct {
 	db                   *db.DB
 	sessionHmacSecretKey string
 }
 
-func New(db db.DB, getenv func(string) string) (SessionManger, error) {
+func New(db db.DB, getenv func(string) string) (SessionManager, error) {
 	hmacSecret := getenv(SESSION_ENV_KEY)
 	if hmacSecret == "" {
-		return SessionManger{}, errors.New("could not locate HMAC secret key")
+		return SessionManager{}, errors.New("could not locate HMAC secret key")
 	}
 
-	s := SessionManger{
+	s := SessionManager{
 		db:                   &db,
 		sessionHmacSecretKey: hmacSecret,
 	}
@@ -47,7 +47,7 @@ func New(db db.DB, getenv func(string) string) (SessionManger, error) {
 	return s, nil
 }
 
-func (s SessionManger) CreateSession(w http.ResponseWriter, r *http.Request, userId int) error {
+func (s SessionManager) CreateSession(w http.ResponseWriter, r *http.Request, userId int) error {
 	sessionId := uuid.NewString()
 	csrfToken, err := generateCsrfToken()
 	if err != nil {
@@ -77,7 +77,7 @@ func (s SessionManger) CreateSession(w http.ResponseWriter, r *http.Request, use
 	return nil
 }
 
-func (s SessionManger) DeleteSession(w http.ResponseWriter, r *http.Request) error {
+func (s SessionManager) DeleteSession(w http.ResponseWriter, r *http.Request) error {
 	session, err := s.loadSession(r)
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func (s SessionManger) DeleteSession(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-func (s SessionManger) PopulateSessionContext(r *http.Request) (context.Context, error) {
+func (s SessionManager) PopulateSessionContext(r *http.Request) (context.Context, error) {
 	session, err := s.loadSession(r)
 
 	if err != nil {
@@ -115,7 +115,7 @@ func GetSessionFromContext(ctx context.Context) (Session, error) {
 	return session, nil
 }
 
-func (s SessionManger) loadSession(r *http.Request) (Session, error) {
+func (s SessionManager) loadSession(r *http.Request) (Session, error) {
 	cookie, err := s.readSessionCookie(r)
 	if err != nil {
 		log.Printf("Failed to read session cookie: %v", err)

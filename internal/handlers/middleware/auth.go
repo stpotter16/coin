@@ -6,7 +6,7 @@ import (
 	"github.com/stpotter16/coin/internal/handlers/sessions"
 )
 
-func NewViewAuthenticationRequiredMiddleware(sessionManager sessions.SessionManger) func(http.Handler) http.Handler {
+func NewViewAuthenticationRequiredMiddleware(sessionManager sessions.SessionManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx, err := sessionManager.PopulateSessionContext(r)
@@ -20,7 +20,7 @@ func NewViewAuthenticationRequiredMiddleware(sessionManager sessions.SessionMang
 	}
 }
 
-func NewApiAuthenticationRequiredMiddleware(sessionManager sessions.SessionManger) func(http.Handler) http.Handler {
+func NewApiAuthenticationRequiredMiddleware(sessionManager sessions.SessionManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx, err := sessionManager.PopulateSessionContext(r)

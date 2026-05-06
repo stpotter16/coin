@@ -33,7 +33,7 @@ func transactionImportPreviewPost(s store.Store) http.HandlerFunc {
 	}
 }
 
-func transactionImportPost(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+func transactionImportPost(s store.Store, sessionManager sessions.SessionManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, err := sessions.GetSessionFromContext(r.Context())
 		if err != nil {
@@ -83,7 +83,7 @@ func transactionPlanItemPost(s store.Store) http.HandlerFunc {
 	}
 }
 
-func transactionCreatePost(s store.Store, sessionManager sessions.SessionManger) http.HandlerFunc {
+func transactionCreatePost(s store.Store, sessionManager sessions.SessionManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, err := sessions.GetSessionFromContext(r.Context())
 		if err != nil {

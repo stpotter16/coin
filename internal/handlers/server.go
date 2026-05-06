@@ -11,7 +11,7 @@ import (
 
 func NewServer(
 	store store.Store,
-	sessionManager sessions.SessionManger,
+	sessionManager sessions.SessionManager,
 	authenticator authentication.Authenticator,
 ) http.Handler {
 	mux := http.NewServeMux()

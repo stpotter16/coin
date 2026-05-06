@@ -9,7 +9,7 @@ import (
 	"github.com/stpotter16/coin/internal/parse"
 )
 
-func loginPost(authenticator authentication.Authenticator, sessionManager sessions.SessionManger) http.HandlerFunc {
+func loginPost(authenticator authentication.Authenticator, sessionManager sessions.SessionManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req, err := parse.ParseLoginPost(r)
 		if err != nil {

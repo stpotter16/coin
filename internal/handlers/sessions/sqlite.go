@@ -9,7 +9,7 @@ import (
 const CLEANUP_INTERVAL = 5 * time.Minute
 const SESSION_TTL = 60 * time.Minute
 
-func (s SessionManger) sessionCleanup() {
+func (s SessionManager) sessionCleanup() {
 	ticker := time.NewTicker(CLEANUP_INTERVAL)
 
 	for range ticker.C {
@@ -19,7 +19,7 @@ func (s SessionManger) sessionCleanup() {
 	}
 }
 
-func (s SessionManger) deleteExpiredSessions() error {
+func (s SessionManager) deleteExpiredSessions() error {
 	delete := `
 	DELETE FROM
 		session
@@ -33,7 +33,7 @@ func (s SessionManger) deleteExpiredSessions() error {
 	return err
 }
 
-func (s SessionManger) readSession(ctx context.Context, key string) ([]byte, error) {
+func (s SessionManager) readSession(ctx context.Context, key string) ([]byte, error) {
 	query := `
 	SELECT
 		value
@@ -53,7 +53,7 @@ func (s SessionManger) readSession(ctx context.Context, key string) ([]byte, err
 	return serializedSession, nil
 }
 
-func (s SessionManger) insertSession(ctx context.Context, key string, session []byte) error {
+func (s SessionManager) insertSession(ctx context.Context, key string, session []byte) error {
 	insert := `
 	INSERT OR REPLACE INTO
 		session
@@ -80,7 +80,7 @@ func (s SessionManger) insertSession(ctx context.Context, key string, session []
 	return err
 }
 
-func (s SessionManger) deleteSession(ctx context.Context, sessionId string) error {
+func (s SessionManager) deleteSession(ctx context.Context, sessionId string) error {
 	delete := `
 	DELETE FROM
 		session

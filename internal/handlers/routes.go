@@ -12,7 +12,7 @@ import (
 func addRoutes(
 	mux *http.ServeMux,
 	store store.Store,
-	sessionManager sessions.SessionManger,
+	sessionManager sessions.SessionManager,
 	authenticator authentication.Authenticator,
 ) {
 	// Static

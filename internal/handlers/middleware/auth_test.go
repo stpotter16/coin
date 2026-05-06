@@ -12,7 +12,7 @@ import (
 	"github.com/stpotter16/coin/internal/store/sqlite"
 )
 
-func newTestSessionManager(t *testing.T) sessions.SessionManger {
+func newTestSessionManager(t *testing.T) sessions.SessionManager {
 	t.Helper()
 
 	d, err := db.New(t.TempDir())
