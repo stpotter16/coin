@@ -2,7 +2,7 @@ FROM golang:1.25.2 AS builder
 
 COPY ./cmd /app/cmd
 COPY ./dev-scripts/build-release-server.sh /app/dev-scripts/build-release-server.sh
-COPY ./dev-scripts/build-release-update-user.sh /app/dev-scripts/build-update-user.sh
+COPY ./dev-scripts/build-release-update-user.sh /app/dev-scripts/build-release-update-user.sh
 COPY ./internal /app/internal
 COPY ./go.* /app/
 
