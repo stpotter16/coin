@@ -16,6 +16,7 @@ type Store interface {
 	// Users
 	GetUserByUsername(ctx context.Context, username string) (types.User, error)
 	CreateUser(ctx context.Context, username, passwordHash string, isAdmin bool) error
+	UpdateUser(ctx context.Context, username, passwordHash string) error
 
 	// Accounts
 	GetAllAccounts(ctx context.Context) ([]types.Account, error)

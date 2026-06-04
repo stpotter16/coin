@@ -56,3 +56,13 @@ func (s Store) CreateUser(ctx context.Context, username, passwordHash string, is
 	)
 	return err
 }
+
+func (s Store) UpdateUser(ctx context.Context, username, passwordHash string) error {
+	now := formatTime(time.Now().UTC())
+
+	_, err := s.db.Exec(ctx,
+		`UPDATE user SET password = ?, last_modified_time = ? WHERE username = ?`,
+		passwordHash, now, username,
+	)
+	return err
+}
