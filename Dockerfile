@@ -2,12 +2,14 @@ FROM golang:1.25.2 AS builder
 
 COPY ./cmd /app/cmd
 COPY ./dev-scripts/build-release-server.sh /app/dev-scripts/build-release-server.sh
+COPY ./dev-scripts/build-release-update-user.sh /app/dev-scripts/build-update-user.sh
 COPY ./internal /app/internal
 COPY ./go.* /app/
 
 WORKDIR /app
 
 RUN ./dev-scripts/build-release-server.sh
+RUN ./dev-scripts/build-release-update-user.sh
 
 FROM litestream/litestream:0.3.13 AS litestream
 
@@ -22,6 +24,7 @@ RUN if [[ -n "${TZ}" ]]; then \
     fi
 
 COPY --from=builder /app/release/coin /app/coin
+COPY --from=builder /app/release/coin_update_user /app/coin_update_user
 COPY --from=litestream /usr/local/bin/litestream /app/litestream
 COPY ./docker-entrypoint /app/docker-entrypoint
 COPY ./litestream.yml /etc/litestream.yml
